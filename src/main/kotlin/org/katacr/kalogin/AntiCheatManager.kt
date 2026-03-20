@@ -26,6 +26,12 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     // 保存玩家的登录前游戏模式
     private val playerGameModes = ConcurrentHashMap<UUID, org.bukkit.GameMode>()
 
+    // 跟踪登录超时任务
+    val loginTimeoutTasks = ConcurrentHashMap<UUID, Int>()
+
+    // 跟踪注册超时任务
+    val registerTimeoutTasks = ConcurrentHashMap<UUID, Int>()
+
     /**
      * 开始认证状态（注册或登录）
      */
@@ -152,6 +158,24 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     @EventHandler
     fun onPlayerQuit(event: PlayerQuitEvent) {
         val player = event.player
+        val uuid = player.uniqueId
+
+        // 取消登录超时任务
+        loginTimeoutTasks[uuid]?.let { taskId ->
+            plugin.server.scheduler.cancelTask(taskId)
+            loginTimeoutTasks.remove(uuid)
+        }
+
+        // 取消注册超时任务
+        registerTimeoutTasks[uuid]?.let { taskId ->
+            plugin.server.scheduler.cancelTask(taskId)
+            registerTimeoutTasks.remove(uuid)
+        }
+
+        // 清理 LoginListener 的数据
+        plugin.loginListener.clearPlayerData(uuid)
+
+        // 结束认证状态
         if (isAuthenticating(player)) {
             endAuthenticating(player)
         }
@@ -163,5 +187,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     fun clearAll() {
         authenticatingPlayers.clear()
         playerGameModes.clear()
+        loginTimeoutTasks.clear()
+        registerTimeoutTasks.clear()
     }
 }

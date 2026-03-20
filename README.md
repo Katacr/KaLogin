@@ -15,13 +15,6 @@ Paper 1.21.7 及以上
 - ⏱️ 登录/注册超时限制
 - 📊 密码强度验证
 - 💾 支持 SQLite 和 MySQL 数据库
-- 🎨 支持颜色代码 (& 和 §)
-
-## 安装
-
-1. 从 [Actions](https://github.com/Katacr/KaLogin/actions) 下载最新构建文件
-2. 将 jar 文件放入服务器的 `plugins` 文件夹
-3. 重启服务器
 
 ## 配置
 
@@ -64,6 +57,7 @@ login:
   max-accounts-per-ip: 3
 ```
 
+
 ## 命令
 
 - `/kalogin` 或 `/kl` - 主命令
@@ -71,46 +65,4 @@ login:
   - `/kl register <玩家> <密码>` - 为玩家设置密码
   - `/kl reload` - 重载配置文件
 
-### 权限
 
-- `kalogin.admin` - 管理员权限
-
-## 语言文件
-
-语言文件位于 `plugins/KaLogin/lang/` 目录：
-
-- `zh_CN.yml` - 简体中文
-- `en_US.yml` - English
-
-你可以修改这些文件来自定义消息内容，支持颜色代码和 MiniMessage 格式。
-
-## 构建
-
-从源码构建：
-
-```bash
-./gradlew shadowJar
-```
-
-构建产物位于 `build/libs/KaLogin-1.0-all.jar`
-
-## 开发
-
-### 环境要求
-
-- JDK 21
-- Kotlin 2.3.20
-
-### 运行测试服务器
-
-```bash
-./gradlew runServer
-```
-
-## 许可证
-
-本项目采用 MIT 许可证。
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！

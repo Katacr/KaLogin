@@ -4,6 +4,7 @@
 language: "zh_CN"
 
 database:
+
   # 存储类型: sqlite 或 mysql
   type: "sqlite"
 

@@ -7,6 +7,7 @@ class KaLogin : JavaPlugin() {
     lateinit var dbManager: DatabaseManager
     lateinit var messageManager: MessageManager
     lateinit var antiCheatManager: AntiCheatManager
+    lateinit var loginListener: LoginListener
 
     override fun onEnable() {
         // 保存默认配置文件
@@ -23,8 +24,9 @@ class KaLogin : JavaPlugin() {
         dbManager = DatabaseManager(this)
         dbManager.init()
 
-        // 注册监听器
-        server.pluginManager.registerEvents(LoginListener(this), this)
+        // 创建并注册监听器
+        loginListener = LoginListener(this)
+        server.pluginManager.registerEvents(loginListener, this)
         server.pluginManager.registerEvents(antiCheatManager, this)
 
         // 注册指令

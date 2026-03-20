@@ -14,6 +14,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -32,11 +33,6 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     // 跟踪玩家的登录错误次数
     private val loginAttempts = ConcurrentHashMap<UUID, Int>()
 
-    // 跟踪玩家的注册超时任务
-    private val registerTimeoutTasks = ConcurrentHashMap<UUID, Int>()
-
-    // 跟踪玩家的登录超时任务
-    private val loginTimeoutTasks = ConcurrentHashMap<UUID, Int>()
 
     /**
      * 获取本地化的对话框标题
@@ -127,9 +123,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         }
 
         // 取消之前的超时任务（如果有）
-        loginTimeoutTasks[player.uniqueId]?.let { taskId ->
+        plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId]?.let { taskId ->
             plugin.server.scheduler.cancelTask(taskId)
-            loginTimeoutTasks.remove(player.uniqueId)
+            plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
         }
 
         // 启动登录超时任务
@@ -139,9 +135,10 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 player.kick(plugin.messageManager.getComponent("login.timeout-kick", "seconds" to timeoutSeconds))
                 plugin.antiCheatManager.endAuthenticating(player)
             }
-            loginTimeoutTasks.remove(player.uniqueId)
+            plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
         }, timeoutSeconds * 20L).taskId
-        loginTimeoutTasks[player.uniqueId] = taskId
+        plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId] = taskId
+
 
         val maxAttempts = plugin.config.getInt("login.max-login-attempts", 3)
         val attemptsLeft = maxAttempts - (loginAttempts[player.uniqueId] ?: 0)
@@ -168,12 +165,13 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         plugin.server.scheduler.runTask(plugin, Runnable {
                             if (isValid) {
                                 // 取消登录超时任务
-                                loginTimeoutTasks[player.uniqueId]?.let { taskId ->
+                                plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId]?.let { taskId ->
                                     plugin.server.scheduler.cancelTask(taskId)
-                                    loginTimeoutTasks.remove(player.uniqueId)
+                                    plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
                                 }
 
                                 val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+
                                 player.sendMessage(plugin.messageManager.getComponent("login.success"))
                                 loggedInPlayers[player.uniqueId] = true
                                 loginAttempts.remove(player.uniqueId)
@@ -211,6 +209,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         player.showDialog(dialog)
     }
 
+
     /**
      * 显示注册对话框（第一遍）
      */
@@ -221,9 +220,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         }
 
         // 取消之前的超时任务（如果有）
-        registerTimeoutTasks[player.uniqueId]?.let { taskId ->
+        plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
             plugin.server.scheduler.cancelTask(taskId)
-            registerTimeoutTasks.remove(player.uniqueId)
+            plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
         }
 
         // 启动注册超时任务
@@ -233,9 +232,10 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 player.kick(plugin.messageManager.getComponent("register.timeout-kick", "seconds" to timeoutSeconds))
                 plugin.antiCheatManager.endAuthenticating(player)
             }
-            registerTimeoutTasks.remove(player.uniqueId)
+            plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
         }, timeoutSeconds * 20L).taskId
-        registerTimeoutTasks[player.uniqueId] = taskId
+        plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId] = taskId
+
 
         val registerAction = DialogAction.customClick(
             DialogActionCallback { response, _ ->
@@ -283,12 +283,13 @@ class LoginListener(private val plugin: KaLogin) : Listener {
 
                 if (secondPassword == firstPassword && firstPassword != null) {
                     // 取消注册超时任务
-                    registerTimeoutTasks[player.uniqueId]?.let { taskId ->
+                    plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
                         plugin.server.scheduler.cancelTask(taskId)
-                        registerTimeoutTasks.remove(player.uniqueId)
+                        plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
                     }
 
                     player.sendMessage(plugin.messageManager.getComponent("register.saving"))
+
 
                     // 异步执行注册
                     plugin.dbManager.registerPlayer(
@@ -326,6 +327,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         player.showDialog(dialog)
     }
 
+
     /**
      * 提取出的通用对话框构建方法（支持本地化）
      */
@@ -349,5 +351,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             .build()
 
         return Dialog.create { it.empty().base(base).type(DialogType.notice(confirmButton)) }
+    }
+
+    /**
+     * 清理玩家的登录数据（供 AntiCheatManager 调用）
+     */
+    fun clearPlayerData(uuid: UUID) {
+        firstPasswordCache.remove(uuid)
+        loginAttempts.remove(uuid)
+        loggedInPlayers.remove(uuid)
     }
 }

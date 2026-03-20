@@ -8,8 +8,8 @@ object PasswordHasher {
      * 加密明文密码
      */
     fun hash(password: String): String {
-        // gensalt(12) 这里的 12 是强度，数值越高越安全但越耗时（推荐 10-12）
-        return BCrypt.hashpw(password, BCrypt.gensalt(12))
+        // BCrypt 加密强度固定为 5，修改后会导致旧密码无法验证
+        return BCrypt.hashpw(password, BCrypt.gensalt(5))
     }
 
     /**
