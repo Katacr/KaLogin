@@ -2,6 +2,9 @@
 
 一个强大的 Minecraft Paper 服务器登录插件，提供安全的用户认证和反作弊功能。
 
+## 支持版本
+Paper 1.21.7 及以上
+
 ## 功能特性
 
 - 🔐 安全的密码加密（使用 bcrypt）
@@ -16,7 +19,7 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/Katacr/KaLogin/releases) 下载最新的 `KaLogin-*-all.jar`
+1. 从 [Actions](https://github.com/Katacr/KaLogin/actions) 下载最新构建文件
 2. 将 jar 文件放入服务器的 `plugins` 文件夹
 3. 重启服务器
 
