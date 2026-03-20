@@ -1,0 +1,60 @@
+# KaLogin 配置文件
+
+# 语言设置: zh_CN (简体中文) 或 en_US (English)
+language: "zh_CN"
+
+database:
+  # 存储类型: sqlite 或 mysql
+  type: "sqlite"
+
+  # 如果使用 mysql，请填写以下信息
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "kalogin"
+    username: "root"
+    password: "password"
+    # 连接池参数（可选）
+    params: "?useSSL=false&serverTimezone=UTC"
+
+  # 如果使用 sqlite，数据库文件名
+  sqlite:
+    file_name: "data.db"
+
+# 注册设置
+settings:
+  # 密码最小长度
+  min-password-length: 6
+  # 密码最大长度
+  max-password-length: 20
+  # 密码只能包含大小写字母、数字和英文符号
+  password-regex: "^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`]+$"
+  # 密码不能包含以下字符串
+  password-blacklist:
+    - "PASSWORD"
+    - "password"
+    - "123456"
+    - "12345678"
+  # 是否必须包含大写字母
+  has-uppercase: false
+  # 是否必须包含小写字母
+  has-lowercase: false
+  # 是否必须包含符号
+  has-symbol: false
+  # 是否必须包含数字
+  has-number: false
+  # 不允许连续 n 个相同的数字（0 表示不限制）
+  max-consecutive-same-digits: 3
+
+# 登录注册设置
+login:
+  # 注册超时时间（秒），超时后踢出玩家
+  register-timeout: 90
+  # 登录超时时间（秒），超时后踢出玩家
+  login-timeout: 90
+  # 登录密码错误最大次数，超过后踢出玩家
+  max-login-attempts: 3
+  # 是否启用相同 IP 自动登录
+  auto-login-by-ip: false
+  # 每个 IP 最多注册的账号数量（0 表示不限制）
+  max-accounts-per-ip: 3

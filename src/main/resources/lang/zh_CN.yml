@@ -1,0 +1,83 @@
+# KaLogin 中文语言文件
+# 支持颜色代码: &c(红), &a(绿), &b(青), &d(粉), &e(黄), &f(白), &l(粗体), &o(斜体), &n(下划线), &m(删除线), &r(重置)
+# 也支持 MiniMessage 格式: <red>, <green>, <bold> 等
+
+# 命令相关
+command:
+  no-permission: "&c你没有权限使用此命令！"
+  unknown-subcommand: "&c未知的子命令！使用 /kl help 查看帮助"
+  delete:
+    usage: "&c用法: /kl delete <玩家名>"
+    player-not-found: "&c找不到玩家: {player}"
+    success: "&a已成功删除玩家 &e{player} &a的数据"
+    failed: "&c删除失败，该玩家可能没有注册数据"
+  register:
+    usage: "&c用法: /kl register <玩家名> <密码>"
+    validation-failed: "&c密码验证失败: {error}"
+    success: "&a已成功为玩家 &e{player} &a设置密码"
+    failed: "&c设置失败，该玩家可能没有注册数据"
+  reload:
+    success: "&a配置文件已重载"
+
+# 登录相关
+login:
+  auto-login-success: "&aIP 已验证，自动登录成功！"
+  success: "&a登录成功！欢迎回来！"
+  verifying: "&e正在验证密码..."
+  password-empty: "&c密码不能为空！"
+  password-wrong: "&c密码错误，请重试。剩余尝试次数: &e{attempts}"
+  too-many-attempts: "&c登录失败次数过多，已被踢出服务器！"
+  timeout-kick: "&c登录超时，请在 &e{seconds} &c秒内完成登录！"
+  dialog-title: "玩家登录"
+  dialog-description: "请输入你的密码：（剩余尝试次数: {attempts}）"
+  dialog-button: "登录"
+
+# 注册相关
+register:
+  welcome: "&a欢迎来到服务器！&e请在 {seconds} &a秒内完成注册"
+  timeout-kick: "&c注册超时，请在 &e{seconds} &c秒内完成注册！"
+  password-empty: "&c密码不能为空！"
+  password-empty-retry: "&c密码不能为空，请重新设置："
+  password-invalid: "&c{error}，请重新设置："
+  password-mismatch: "&c两次输入的密码不一致，请重新开始。"
+  password-mismatch-retry: "&c两次输入不匹配，请重新设置密码："
+  saving: "&e正在保存账号..."
+  success: "&a注册成功！你可以开始游戏了。"
+  failed: "&c注册失败，请联系管理员。"
+  dialog-title: "新玩家注册"
+  dialog-description: "{description}"
+  dialog-button: "下一步"
+
+# 确认密码
+confirm:
+  dialog-title: "确认密码"
+  dialog-description: "请再次输入密码以确认："
+  dialog-button: "完成注册"
+
+# IP 限制相关
+ip-limit:
+  exceeded: "&c该 IP 已达到最大注册账号数量限制（&e{count} &c个）！"
+
+# 密码验证相关
+password-validation:
+  too-short: "&c密码长度不能少于 &e{min} &c个字符"
+  too-long: "&c密码长度不能超过 &e{max} &c个字符"
+  invalid-chars: "&c密码包含非法字符，只允许大小写字母、数字和英文符号"
+  in-blacklist: "&c密码包含禁止使用的字符串: &e{word}"
+  missing-uppercase: "&c密码必须包含至少一个大写字母"
+  missing-lowercase: "&c密码必须包含至少一个小写字母"
+  missing-number: "&c密码必须包含至少一个数字"
+  missing-symbol: "&c密码必须包含至少一个符号"
+  too-many-same-digits: "&c密码不允许连续 &e{max} &c个相同的数字"
+
+# 插件相关
+plugin:
+  enabled: "KaLogin 已启动！"
+  disabled: "KaLogin 已停止！"
+
+# 防作弊相关
+anti-cheat:
+  chat-blocked: "&c请在完成注册/登录后再进行聊天"
+  command-blocked: "&c请在完成注册/登录后再使用命令"
+  action-blocked: "&c请在完成注册/登录后再进行此操作"
+

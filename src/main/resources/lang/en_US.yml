@@ -1,0 +1,83 @@
+# KaLogin English Language File
+# Supports color codes: &c(red), &a(green), &b(cyan), &d(pink), &e(yellow), &f(white), &l(bold), &o(italic), &n(underline), &m(strikethrough), &r(reset)
+# Also supports MiniMessage format: <red>, <green>, <bold> etc.
+
+# Command related
+command:
+  no-permission: "&cYou don't have permission to use this command!"
+  unknown-subcommand: "&cUnknown subcommand! Use /kl help for help"
+  delete:
+    usage: "&cUsage: /kl delete <player>"
+    player-not-found: "&cPlayer not found: {player}"
+    success: "&aSuccessfully deleted &e{player}'s &adata"
+    failed: "&cDeletion failed, player may not have registered data"
+  register:
+    usage: "&cUsage: /kl register <player> <password>"
+    validation-failed: "&cPassword validation failed: {error}"
+    success: "&aSuccessfully set password for player &e{player}"
+    failed: "&cSetup failed, player may not have registered data"
+  reload:
+    success: "&aConfiguration reloaded"
+
+# Login related
+login:
+  auto-login-success: "&aIP verified, auto-login successful!"
+  success: "&aLogin successful! Welcome back!"
+  verifying: "&eVerifying password..."
+  password-empty: "&cPassword cannot be empty!"
+  password-wrong: "&cPassword incorrect, please try again. Attempts remaining: &e{attempts}"
+  too-many-attempts: "&cToo many failed login attempts, you have been kicked!"
+  timeout-kick: "&cLogin timeout, please complete login within &e{seconds} &cseconds!"
+  dialog-title: "Player Login"
+  dialog-description: "Please enter your password: (Attempts remaining: {attempts})"
+  dialog-button: "Login"
+
+# Registration related
+register:
+  welcome: "&aWelcome to the server! &ePlease complete registration within {seconds} seconds"
+  timeout-kick: "&cRegistration timeout, please complete registration within &e{seconds} &cseconds!"
+  password-empty: "&cPassword cannot be empty!"
+  password-empty-retry: "&cPassword cannot be empty, please set again:"
+  password-invalid: "&c{error}, please set again:"
+  password-mismatch: "&cPasswords do not match, please start over."
+  password-mismatch-retry: "&cPasswords do not match, please set password again:"
+  saving: "&eSaving account..."
+  success: "&aRegistration successful! You can start playing now."
+  failed: "&cRegistration failed, please contact administrator."
+  dialog-title: "New Player Registration"
+  dialog-description: "{description}"
+  dialog-button: "Next"
+
+# Confirm password
+confirm:
+  dialog-title: "Confirm Password"
+  dialog-description: "Please enter your password again to confirm:"
+  dialog-button: "Complete Registration"
+
+# IP limit related
+ip-limit:
+  exceeded: "&cThis IP has reached the maximum account registration limit (&e{count} &caccounts)!"
+
+# Password validation related
+password-validation:
+  too-short: "&cPassword cannot be shorter than &e{min} &ccharacters"
+  too-long: "&cPassword cannot be longer than &e{max} &ccharacters"
+  invalid-chars: "&cPassword contains illegal characters, only letters, numbers and English symbols are allowed"
+  in-blacklist: "&cPassword contains prohibited string: &e{word}"
+  missing-uppercase: "&cPassword must contain at least one uppercase letter"
+  missing-lowercase: "&cPassword must contain at least one lowercase letter"
+  missing-number: "&cPassword must contain at least one number"
+  missing-symbol: "&cPassword must contain at least one symbol"
+  too-many-same-digits: "&cPassword cannot have &e{max} &cconsecutive identical digits"
+
+# Plugin related
+plugin:
+  enabled: "KaLogin has started!"
+  disabled: "KaLogin has stopped!"
+
+# Anti-cheat related
+anti-cheat:
+  chat-blocked: "&cPlease complete registration/login before chatting"
+  command-blocked: "&cPlease complete registration/login before using commands"
+  action-blocked: "&cPlease complete registration/login before performing this action"
+
