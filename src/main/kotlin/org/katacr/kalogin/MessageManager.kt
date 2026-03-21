@@ -92,6 +92,23 @@ class MessageManager(private val plugin: KaLogin) {
     }
 
     /**
+     * 从消息字符串转换为 Component
+     */
+    fun getComponentFromMessage(message: String): Component {
+        // 检查是否包含 MiniMessage 标签或 Legacy 颜色代码
+        return if (message.contains("<") || message.contains("&") || message.contains("§")) {
+            // 如果包含 Legacy 颜色代码，优先使用 Legacy 转换
+            if (message.contains("&") || message.contains("§")) {
+                convertColors(message)
+            } else {
+                miniMessage.deserialize(message)
+            }
+        } else {
+            Component.text(message)
+        }
+    }
+
+    /**
      * 获取带颜色的消息组件（支持 MiniMessage 和 &/§ 颜色代码）
      */
     fun getComponent(key: String, vararg args: Pair<String, Any>, locale: String? = null): Component {

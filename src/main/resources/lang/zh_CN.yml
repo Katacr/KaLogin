@@ -29,6 +29,7 @@ login:
   too-many-attempts: "&c登录失败次数过多，已被踢出服务器！"
   timeout-kick: "&c登录超时，请在 &e{seconds} &c秒内完成登录！"
   dialog-title: "玩家登录"
+  welcome-message: "&e&l欢迎回到服务器！&r&f\n请输入你的密码以继续游戏"
   dialog-description: "请输入你的密码：（剩余尝试次数: {attempts}）"
   dialog-button: "登录"
 
@@ -37,22 +38,19 @@ register:
   welcome: "&a欢迎来到服务器！&e请在 {seconds} &a秒内完成注册"
   timeout-kick: "&c注册超时，请在 &e{seconds} &c秒内完成注册！"
   password-empty: "&c密码不能为空！"
-  password-empty-retry: "&c密码不能为空，请重新设置："
-  password-invalid: "&c{error}，请重新设置："
+  password-empty-retry: "&c密码不能为空，请重新设置。"
+  password-invalid: "&c{error}，请重新设置。"
   password-mismatch: "&c两次输入的密码不一致，请重新开始。"
-  password-mismatch-retry: "&c两次输入不匹配，请重新设置密码："
+  password-mismatch-retry: "&c两次输入不匹配，请重新设置密码。"
   saving: "&e正在保存账号..."
   success: "&a注册成功！你可以开始游戏了。"
   failed: "&c注册失败，请联系管理员。"
   dialog-title: "新玩家注册"
+  welcome-message: "&e&l欢迎来到服务器！&r&f\n请设置你的密码以开始游戏"
   dialog-description: "{description}"
-  dialog-button: "下一步"
-
-# 确认密码
-confirm:
-  dialog-title: "确认密码"
-  dialog-description: "请再次输入密码以确认："
   dialog-button: "完成注册"
+  password-input: "请输入你的密码："
+  confirm-password-input: "请再次输入密码以确认："
 
 # IP 限制相关
 ip-limit:
@@ -63,7 +61,7 @@ password-validation:
   too-short: "&c密码长度不能少于 &e{min} &c个字符"
   too-long: "&c密码长度不能超过 &e{max} &c个字符"
   invalid-chars: "&c密码包含非法字符，只允许大小写字母、数字和英文符号"
-  in-blacklist: "&c密码包含禁止使用的字符串: &e{word}"
+  in-blacklist: "&c密码&e{word}&c过于简单，请重新设置"
   missing-uppercase: "&c密码必须包含至少一个大写字母"
   missing-lowercase: "&c密码必须包含至少一个小写字母"
   missing-number: "&c密码必须包含至少一个数字"

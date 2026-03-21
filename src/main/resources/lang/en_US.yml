@@ -29,6 +29,7 @@ login:
   too-many-attempts: "&cToo many failed login attempts, you have been kicked!"
   timeout-kick: "&cLogin timeout, please complete login within &e{seconds} &cseconds!"
   dialog-title: "Player Login"
+  welcome-message: "&e&lWelcome back to the server!&r&f\nPlease enter your password to continue playing"
   dialog-description: "Please enter your password: (Attempts remaining: {attempts})"
   dialog-button: "Login"
 
@@ -45,14 +46,11 @@ register:
   success: "&aRegistration successful! You can start playing now."
   failed: "&cRegistration failed, please contact administrator."
   dialog-title: "New Player Registration"
+  welcome-message: "&e&lWelcome to the server!&r&f\nPlease set your password to start playing"
   dialog-description: "{description}"
-  dialog-button: "Next"
-
-# Confirm password
-confirm:
-  dialog-title: "Confirm Password"
-  dialog-description: "Please enter your password again to confirm:"
   dialog-button: "Complete Registration"
+  password-input: "Please enter your password:"
+  confirm-password-input: "Please enter your password again to confirm:"
 
 # IP limit related
 ip-limit:

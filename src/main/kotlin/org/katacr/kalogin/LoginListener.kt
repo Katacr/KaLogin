@@ -3,6 +3,7 @@ package org.katacr.kalogin
 import io.papermc.paper.dialog.Dialog
 import io.papermc.paper.registry.data.dialog.ActionButton
 import io.papermc.paper.registry.data.dialog.DialogBase
+import io.papermc.paper.registry.data.dialog.body.DialogBody
 import io.papermc.paper.registry.data.dialog.action.DialogAction
 import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
 import io.papermc.paper.registry.data.dialog.input.DialogInput
@@ -24,8 +25,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     // 密码验证器
     private val passwordValidator = PasswordValidator(plugin)
 
-    // 用于临时存放玩家第一次输入的密码
-    private val firstPasswordCache = ConcurrentHashMap<UUID, String>()
+
 
     // 用于跟踪已登录的玩家
     private val loggedInPlayers = ConcurrentHashMap<UUID, Boolean>()
@@ -116,7 +116,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     /**
      * 显示登录对话框
      */
-    private fun showLoginDialog(player: Player) {
+    private fun showLoginDialog(player: Player, errorMessage: String? = null) {
         // 开始防作弊状态（仅在首次调用时）
         if (!plugin.antiCheatManager.isAuthenticating(player)) {
             plugin.antiCheatManager.startAuthenticating(player)
@@ -153,12 +153,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             DialogActionCallback { response, _ ->
                 val password = response.getText("login_password")
                 if (password.isNullOrBlank()) {
-                    player.sendMessage(plugin.messageManager.getComponent("login.password-empty"))
-                    showLoginDialog(player)
+                    showLoginDialog(player, plugin.messageManager.getMessage("login.password-empty"))
                     return@DialogActionCallback
                 }
-
-                player.sendMessage(plugin.messageManager.getComponent("login.verifying"))
 
                 // 异步验证密码
                 plugin.dbManager.verifyPassword(player.uniqueId, password).thenAccept { isValid: Boolean ->
@@ -185,8 +182,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
 
                             val remainingAttempts = maxAttempts - currentAttempts
                             if (remainingAttempts > 0) {
-                                player.sendMessage(plugin.messageManager.getComponent("login.password-wrong", "attempts" to remainingAttempts))
-                                showLoginDialog(player)
+                                showLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to remainingAttempts))
                             } else {
                                 player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
                                 plugin.antiCheatManager.endAuthenticating(player)
@@ -200,20 +196,22 @@ class LoginListener(private val plugin: KaLogin) : Listener {
 
         val dialog = buildInputDialog(
             titleKey = "login.dialog-title",
+            welcomeMessageKey = "login.welcome-message",
             descriptionKey = "login.dialog-description",
             descriptionArgs = arrayOf("attempts" to attemptsLeft),
             inputId = "login_password",
             buttonKey = "login.dialog-button",
-            action = loginAction
+            action = loginAction,
+            errorMessage = errorMessage
         )
         player.showDialog(dialog)
     }
 
 
     /**
-     * 显示注册对话框（第一遍）
+     * 显示注册对话框（包含密码和确认密码两个输入框）
      */
-    private fun showRegisterDialog(player: Player, description: String) {
+    private fun showRegisterDialog(player: Player, description: String, errorMessage: String? = null) {
         // 开始防作弊状态（仅在第一次调用时）
         if (!plugin.antiCheatManager.isAuthenticating(player)) {
             plugin.antiCheatManager.startAuthenticating(player)
@@ -236,117 +234,146 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         }, timeoutSeconds * 20L).taskId
         plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId] = taskId
 
-
         val registerAction = DialogAction.customClick(
             DialogActionCallback { response, _ ->
                 val password = response.getText("reg_password")
+                val confirmPassword = response.getText("reg_confirm_password")
+
                 if (password.isNullOrBlank()) {
-                    player.sendMessage(plugin.messageManager.getComponent("register.password-empty"))
-                    showRegisterDialog(player, plugin.messageManager.getMessage("register.password-empty-retry"))
+                    showRegisterDialog(player, plugin.messageManager.getMessage("register.password-empty-retry"), plugin.messageManager.getMessage("register.password-empty"))
                     return@DialogActionCallback
                 }
 
                 // 验证密码格式
                 val validationError = passwordValidator.validate(password)
                 if (validationError != null) {
-                    player.sendMessage(plugin.messageManager.getComponent("register.password-invalid", "error" to validationError))
-                    showRegisterDialog(player, plugin.messageManager.getMessage("register.password-invalid", "error" to validationError))
+                    showRegisterDialog(player, plugin.messageManager.getMessage("register.password-invalid", "error" to validationError), plugin.messageManager.getMessage("register.password-invalid", "error" to validationError))
                     return@DialogActionCallback
                 }
 
-                // 暂存第一遍密码，并开启第二遍确认
-                firstPasswordCache[player.uniqueId] = password
-                showConfirmDialog(player)
-            },
-            ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
-        )
+                // 验证两次密码是否一致
+                if (password != confirmPassword) {
+                    showRegisterDialog(player, plugin.messageManager.getMessage("register.password-mismatch-retry"), plugin.messageManager.getMessage("register.password-mismatch"))
+                    return@DialogActionCallback
+                }
 
-        val dialog = buildInputDialog(
-            titleKey = "register.dialog-title",
-            descriptionKey = "register.dialog-description",
-            descriptionArgs = arrayOf("description" to description),
-            inputId = "reg_password",
-            buttonKey = "register.dialog-button",
-            action = registerAction
-        )
-        player.showDialog(dialog)
-    }
+                // 取消注册超时任务
+                plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
+                    plugin.server.scheduler.cancelTask(taskId)
+                    plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
+                }
 
-    /**
-     * 显示确认对话框（第二遍）
-     */
-    private fun showConfirmDialog(player: Player) {
-        val confirmAction = DialogAction.customClick(
-            { response, _ ->
-                val secondPassword = response.getText("confirm_password")
-                val firstPassword = firstPasswordCache.remove(player.uniqueId)
+                player.sendMessage(plugin.messageManager.getComponent("register.saving"))
 
-                if (secondPassword == firstPassword && firstPassword != null) {
-                    // 取消注册超时任务
-                    plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
-                        plugin.server.scheduler.cancelTask(taskId)
-                        plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
-                    }
-
-                    player.sendMessage(plugin.messageManager.getComponent("register.saving"))
-
-
-                    // 异步执行注册
-                    plugin.dbManager.registerPlayer(
-                        player.uniqueId,
-                        player.name,
-                        firstPassword,
-                        player.address?.address?.hostAddress ?: "127.0.0.1"
-                    ).thenAccept { success: Boolean ->
-                        // 返回主线程给玩家发送反馈
-                        plugin.server.scheduler.runTask(plugin, Runnable {
-                            if (success) {
-                                player.sendMessage(plugin.messageManager.getComponent("register.success"))
-                                // 结束防作弊状态
-                                plugin.antiCheatManager.endAuthenticating(player)
-                            } else {
-                                player.sendMessage(plugin.messageManager.getComponent("register.failed"))
-                            }
-                        })
-                    }
-                } else {
-                    player.sendMessage(plugin.messageManager.getComponent("register.password-mismatch"))
-                    showRegisterDialog(player, plugin.messageManager.getMessage("register.password-mismatch-retry"))
+                // 异步执行注册
+                plugin.dbManager.registerPlayer(
+                    player.uniqueId,
+                    player.name,
+                    password,
+                    player.address?.address?.hostAddress ?: "127.0.0.1"
+                ).thenAccept { success: Boolean ->
+                    // 返回主线程给玩家发送反馈
+                    plugin.server.scheduler.runTask(plugin, Runnable {
+                        if (success) {
+                            player.sendMessage(plugin.messageManager.getComponent("register.success"))
+                            // 结束防作弊状态
+                            plugin.antiCheatManager.endAuthenticating(player)
+                        } else {
+                            player.sendMessage(plugin.messageManager.getComponent("register.failed"))
+                        }
+                    })
                 }
             },
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val dialog = buildInputDialog(
-            titleKey = "confirm.dialog-title",
-            descriptionKey = "confirm.dialog-description",
-            inputId = "confirm_password",
-            buttonKey = "confirm.dialog-button",
-            action = confirmAction
+        val dialog = buildRegisterDialog(
+            titleKey = "register.dialog-title",
+            welcomeMessageKey = "register.welcome-message",
+            descriptionKey = "register.dialog-description",
+            descriptionArgs = arrayOf("description" to description),
+            buttonKey = "register.dialog-button",
+            action = registerAction,
+            errorMessage = errorMessage
         )
         player.showDialog(dialog)
     }
 
 
     /**
-     * 提取出的通用对话框构建方法（支持本地化）
+     * 提取出的通用对话框构建方法（支持本地化，单个输入框）
      */
     private fun buildInputDialog(
         titleKey: String,
+        welcomeMessageKey: String? = null,
         descriptionKey: String,
         descriptionArgs: Array<Pair<String, Any>> = emptyArray(),
         inputId: String,
         buttonKey: String,
-        action: DialogAction
+        action: DialogAction,
+        errorMessage: String? = null
     ): Dialog {
         val confirmButton = ActionButton.builder(getLocalizedButton(buttonKey))
             .action(action)
             .build()
 
+        val bodyList = mutableListOf<DialogBody>()
+
+        // 添加欢迎消息（如果有）- 放在最上方
+        if (welcomeMessageKey != null) {
+            bodyList.add(DialogBody.plainMessage(getLocalizedTitle(welcomeMessageKey)))
+        }
+
+        // 添加错误消息（如果有）- 放在 inputs 之后、按钮之前
+        if (errorMessage != null) {
+            bodyList.add(DialogBody.plainMessage(plugin.messageManager.getComponentFromMessage(errorMessage)))
+        }
+
         val base = DialogBase.builder(getLocalizedTitle(titleKey))
             .canCloseWithEscape(false)
+            .body(bodyList)
             .inputs(listOf(
                 DialogInput.text(inputId, getLocalizedDescription(descriptionKey, *descriptionArgs)).build()
+            ))
+            .build()
+
+        return Dialog.create { it.empty().base(base).type(DialogType.notice(confirmButton)) }
+    }
+
+    /**
+     * 注册对话框构建方法（包含密码和确认密码两个输入框）
+     */
+    private fun buildRegisterDialog(
+        titleKey: String,
+        welcomeMessageKey: String? = null,
+        descriptionKey: String,
+        descriptionArgs: Array<Pair<String, Any>> = emptyArray(),
+        buttonKey: String,
+        action: DialogAction,
+        errorMessage: String? = null
+    ): Dialog {
+        val confirmButton = ActionButton.builder(getLocalizedButton(buttonKey))
+            .action(action)
+            .build()
+
+        val bodyList = mutableListOf<DialogBody>()
+
+        // 添加欢迎消息（如果有）- 放在最上方
+        if (welcomeMessageKey != null) {
+            bodyList.add(DialogBody.plainMessage(getLocalizedTitle(welcomeMessageKey)))
+        }
+
+        // 添加错误消息（如果有）- 放在 inputs 之后、按钮之前
+        if (errorMessage != null) {
+            bodyList.add(DialogBody.plainMessage(plugin.messageManager.getComponentFromMessage(errorMessage)))
+        }
+
+        val base = DialogBase.builder(getLocalizedTitle(titleKey))
+            .canCloseWithEscape(false)
+            .body(bodyList)
+            .inputs(listOf(
+                DialogInput.text("reg_password", getLocalizedDescription("register.password-input", *descriptionArgs)).build(),
+                DialogInput.text("reg_confirm_password", getLocalizedDescription("register.confirm-password-input")).build()
             ))
             .build()
 
@@ -357,7 +384,6 @@ class LoginListener(private val plugin: KaLogin) : Listener {
      * 清理玩家的登录数据（供 AntiCheatManager 调用）
      */
     fun clearPlayerData(uuid: UUID) {
-        firstPasswordCache.remove(uuid)
         loginAttempts.remove(uuid)
         loggedInPlayers.remove(uuid)
     }
