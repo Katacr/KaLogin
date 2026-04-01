@@ -1,0 +1,33 @@
+Body:
+
+  # 欢迎语（使用MiniMessage格式）
+  welcome:
+    type: 'message'
+    text: |
+      <gradient:gold:yellow>欢迎回到服务器！<reset>
+      请输入你的密码以继续游戏
+
+  # 服务器图标物品
+  apple_item:
+    type: 'item'
+    material: 'apple'
+    name: '&a&l服务器图标'
+    description: '&f这是服务器图标的介绍'
+    # item_model 参数（1.21.7+ 自定义物品模型）
+    # 格式: namespace:path (例如: minecraft:diamond 或 myplugin:custom_model)
+    # 示例:
+    #   item_model: 'minecraft:diamond'    # 使用钻石模型
+    #   item_model: 'myplugin:custom_sword'  # 使用自定义插件物品模型
+    #   item_model: ''                    # 不使用自定义模型（默认）
+    item_model: ''
+
+  # 提示信息
+  intro:
+    type: 'message'
+    text: '&7请在下方输入密码，然后点击确认。'
+
+  # 可点击的文本（hovertext示例）
+  hovertext_demo:
+    type: 'message'
+    text: '&7点击 <text=&b[ 官网 ];hover=&7打开官网;url=https://example.com> 访问官网'
+

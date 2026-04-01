@@ -1,7 +1,10 @@
 name: KaLogin
-version: '1.1.0'
+version: '1.2.0'
 main: org.katacr.kalogin.KaLogin
 api-version: '1.21'
+
+softdepend:
+  - PlaceholderAPI
 
 commands:
   kalogin:
@@ -14,9 +17,17 @@ commands:
     description: KaLogin 简写命令
     usage: /kl <delete|register|reload>
     permission: kalogin.admin
+  changepassword:
+    description: 修改密码
+    usage: /changepassword
+    aliases:
+      - cp
 
 permissions:
   kalogin.admin:
     description: 允许使用 KaLogin 管理命令
     default: op
+  kalogin.changepassword:
+    description: 允许修改密码
+    default: true
 

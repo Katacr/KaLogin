@@ -29,9 +29,9 @@ login:
   too-many-attempts: "&cToo many failed login attempts, you have been kicked!"
   timeout-kick: "&cLogin timeout, please complete login within &e{seconds} &cseconds!"
   dialog-title: "Player Login"
-  welcome-message: "&e&lWelcome back to the server!&r&f\nPlease enter your password to continue playing"
   dialog-description: "Please enter your password: (Attempts remaining: {attempts})"
   dialog-button: "Login"
+  auto-login-checkbox: "Auto-login with same IP"
 
 # Registration related
 register:
@@ -46,11 +46,26 @@ register:
   success: "&aRegistration successful! You can start playing now."
   failed: "&cRegistration failed, please contact administrator."
   dialog-title: "New Player Registration"
-  welcome-message: "&e&lWelcome to the server!&r&f\nPlease set your password to start playing"
   dialog-description: "{description}"
   dialog-button: "Complete Registration"
   password-input: "Please enter your password:"
   confirm-password-input: "Please enter your password again to confirm:"
+
+# Change password related
+change-password:
+  old-password-empty: "&cOld password cannot be empty!"
+  old-password-wrong: "&cOld password incorrect, please try again. Attempts remaining: &e{attempts}"
+  new-password-empty: "&cNew password cannot be empty!"
+  new-password-invalid: "&cNew password validation failed: {error}"
+  same-password: "&cNew password cannot be the same as old password!"
+  password-mismatch: "&cNew passwords do not match, please set again."
+  too-many-attempts: "&cToo many failed old password verification attempts!"
+  saving: "&eSaving new password..."
+  success: "&aPassword changed successfully!"
+  failed: "&cPassword change failed, please contact administrator."
+  dialog-title: "Change Password"
+  dialog-button: "Confirm Change"
+  cancel-button: "Cancel"
 
 # IP limit related
 ip-limit:

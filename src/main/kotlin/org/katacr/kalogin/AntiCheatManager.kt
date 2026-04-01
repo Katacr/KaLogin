@@ -32,6 +32,12 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     // 跟踪注册超时任务
     val registerTimeoutTasks = ConcurrentHashMap<UUID, Int>()
 
+    // 跟踪玩家当前的对话框类型（login 或 register）
+    private val playerDialogTypes = ConcurrentHashMap<UUID, String>()
+
+    // 跟踪上次重新显示对话框的时间（防抖机制）
+    private val lastDialogReshowTimes = ConcurrentHashMap<UUID, Long>()
+
     /**
      * 开始认证状态（注册或登录）
      */
@@ -87,6 +93,8 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
 
         // 清理数据
         authenticatingPlayers.remove(uuid)
+        playerDialogTypes.remove(uuid)
+        lastDialogReshowTimes.remove(uuid)
     }
 
     /**
@@ -104,19 +112,66 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     }
 
     /**
-     * 玩家移动事件 - 冻结位置
+     * 设置玩家当前的对话框类型
+     */
+    fun setPlayerDialogType(player: Player, type: String) {
+        playerDialogTypes[player.uniqueId] = type
+    }
+
+    /**
+     * 获取玩家当前的对话框类型
+     */
+    fun getPlayerDialogType(player: Player): String? {
+        return playerDialogTypes[player.uniqueId]
+    }
+
+    /**
+     * 清除玩家的对话框类型
+     */
+    fun clearPlayerDialogType(player: Player) {
+        playerDialogTypes.remove(player.uniqueId)
+    }
+
+    /**
+     * 玩家移动事件 - 冻结位置并重新显示对话框
      */
     @EventHandler
     fun onPlayerMove(event: PlayerMoveEvent) {
-        // 只在位置实际变化时检查（转头不算）
-        if (event.from.x == event.to.x && event.from.y == event.to.y && event.from.z == event.to.z) {
-            return
-        }
-
         val player = event.player
         if (!isAuthenticating(player)) return
 
-        // 简单直接：将目标位置设置为源位置（比TP更高效）
+        // 检测任何移动（包括位置移动和视角移动）
+        val hasMoved = event.from.x != event.to.x ||
+                      event.from.y != event.to.y ||
+                      event.from.z != event.to.z ||
+                      event.from.yaw != event.to.yaw ||
+                      event.from.pitch != event.to.pitch
+
+        if (!hasMoved) return
+
+        // 如果检测到移动，重新显示对话框
+        val dialogType = getPlayerDialogType(player)
+        if (dialogType != null) {
+            val now = System.currentTimeMillis()
+            val lastReshowTime = lastDialogReshowTimes[player.uniqueId] ?: 0
+
+            // 防抖机制：2秒内不重复显示对话框
+            if (now - lastReshowTime < 2000) return
+
+            lastDialogReshowTimes[player.uniqueId] = now
+
+            // 延迟一 tick 重新显示对话框，避免频繁触发
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                if (!isAuthenticating(player)) return@Runnable
+
+                when (dialogType) {
+                    "login" -> plugin.loginListener.showLoginDialog(player)
+                    "register" -> plugin.loginListener.showRegisterDialog(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                }
+            })
+        }
+
+        // 冻结位置移动（但不冻结视角）
         event.to = event.from
     }
 

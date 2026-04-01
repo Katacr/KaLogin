@@ -29,9 +29,9 @@ login:
   too-many-attempts: "&c登录失败次数过多，已被踢出服务器！"
   timeout-kick: "&c登录超时，请在 &e{seconds} &c秒内完成登录！"
   dialog-title: "玩家登录"
-  welcome-message: "&e&l欢迎回到服务器！&r&f\n请输入你的密码以继续游戏"
   dialog-description: "请输入你的密码：（剩余尝试次数: {attempts}）"
   dialog-button: "登录"
+  auto-login-checkbox: "同IP自动登录"
 
 # 注册相关
 register:
@@ -46,11 +46,26 @@ register:
   success: "&a注册成功！你可以开始游戏了。"
   failed: "&c注册失败，请联系管理员。"
   dialog-title: "新玩家注册"
-  welcome-message: "&e&l欢迎来到服务器！&r&f\n请设置你的密码以开始游戏"
   dialog-description: "{description}"
   dialog-button: "完成注册"
   password-input: "请输入你的密码："
   confirm-password-input: "请再次输入密码以确认："
+
+# 修改密码相关
+change-password:
+  old-password-empty: "&c旧密码不能为空！"
+  old-password-wrong: "&c旧密码错误，请重试。剩余尝试次数: &e{attempts}"
+  new-password-empty: "&c新密码不能为空！"
+  new-password-invalid: "&c新密码验证失败: {error}"
+  same-password: "&c新密码不能与旧密码相同！"
+  password-mismatch: "&c两次输入的新密码不一致，请重新设置。"
+  too-many-attempts: "&c旧密码验证失败次数过多！"
+  saving: "&e正在保存新密码..."
+  success: "&a密码修改成功！"
+  failed: "&c密码修改失败，请联系管理员。"
+  dialog-title: "修改密码"
+  dialog-button: "确认修改"
+  cancel-button: "取消"
 
 # IP 限制相关
 ip-limit:

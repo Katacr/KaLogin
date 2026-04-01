@@ -1,21 +1,13 @@
 package org.katacr.kalogin
 
-import io.papermc.paper.dialog.Dialog
 import io.papermc.paper.registry.data.dialog.ActionButton
-import io.papermc.paper.registry.data.dialog.DialogBase
-import io.papermc.paper.registry.data.dialog.body.DialogBody
 import io.papermc.paper.registry.data.dialog.action.DialogAction
 import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
-import io.papermc.paper.registry.data.dialog.input.DialogInput
-import io.papermc.paper.registry.data.dialog.type.DialogType
-import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickCallback
-import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
-import org.bukkit.event.player.PlayerQuitEvent
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -34,26 +26,6 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     private val loginAttempts = ConcurrentHashMap<UUID, Int>()
 
 
-    /**
-     * 获取本地化的对话框标题
-     */
-    private fun getLocalizedTitle(key: String): Component {
-        return plugin.messageManager.getComponent(key)
-    }
-
-    /**
-     * 获取本地化的对话框描述
-     */
-    private fun getLocalizedDescription(key: String, vararg args: Pair<String, Any>): Component {
-        return plugin.messageManager.getComponent(key, *args)
-    }
-
-    /**
-     * 获取本地化的按钮文本
-     */
-    private fun getLocalizedButton(key: String): Component {
-        return plugin.messageManager.getComponent(key)
-    }
 
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
@@ -66,28 +38,20 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         // 检查玩家是否已注册
         plugin.dbManager.isPlayerRegistered(player.uniqueId).thenAccept { registered ->
             if (registered) {
-                // 已注册，检查是否启用相同 IP 自动登录
-                val autoLoginByIp = plugin.config.getBoolean("login.auto-login-by-ip", true)
-                if (autoLoginByIp) {
-                    plugin.dbManager.isSameLastIp(player.uniqueId, currentIp).thenAccept { sameIp ->
-                        plugin.server.scheduler.runTask(plugin, Runnable {
-                            if (sameIp) {
-                                // IP 相同，自动登录
-                                player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
-                                loggedInPlayers[player.uniqueId] = true
-                                plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
-                                // 结束防作弊状态
-                                plugin.antiCheatManager.endAuthenticating(player)
-                            } else {
-                                // IP 不同，显示登录对话框
-                                showLoginDialog(player)
-                            }
-                        })
-                    }
-                } else {
-                    // 未启用自动登录，显示登录对话框
+                // 已注册，检查玩家是否启用同IP自动登录
+                plugin.dbManager.canAutoLogin(player.uniqueId, currentIp).thenAccept { canAutoLogin ->
                     plugin.server.scheduler.runTask(plugin, Runnable {
-                        showLoginDialog(player)
+                        if (canAutoLogin) {
+                            // IP 相同且玩家启用了自动登录，自动登录
+                            player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
+                            loggedInPlayers[player.uniqueId] = true
+                            plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
+                            // 结束防作弊状态
+                            plugin.antiCheatManager.endAuthenticating(player)
+                        } else {
+                            // 显示登录对话框
+                            showLoginDialog(player)
+                        }
                     })
                 }
             } else {
@@ -116,11 +80,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     /**
      * 显示登录对话框
      */
-    private fun showLoginDialog(player: Player, errorMessage: String? = null) {
+    fun showLoginDialog(player: Player, errorMessage: String? = null) {
         // 开始防作弊状态（仅在首次调用时）
         if (!plugin.antiCheatManager.isAuthenticating(player)) {
             plugin.antiCheatManager.startAuthenticating(player)
         }
+
+        // 设置对话框类型
+        plugin.antiCheatManager.setPlayerDialogType(player, "login")
 
         // 取消之前的超时任务（如果有）
         plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId]?.let { taskId ->
@@ -152,6 +119,8 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         val loginAction = DialogAction.customClick(
             DialogActionCallback { response, _ ->
                 val password = response.getText("login_password")
+                val autoLoginCheckbox = response.getBoolean("auto_login_by_ip") ?: false
+
                 if (password.isNullOrBlank()) {
                     showLoginDialog(player, plugin.messageManager.getMessage("login.password-empty"))
                     return@DialogActionCallback
@@ -174,6 +143,8 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 loginAttempts.remove(player.uniqueId)
                                 // 更新最后登录 IP
                                 plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
+                                // 更新自动登录设置
+                                plugin.dbManager.updateAutoLoginByIp(player.uniqueId, autoLoginCheckbox)
                                 // 结束防作弊状态
                                 plugin.antiCheatManager.endAuthenticating(player)
                             } else {
@@ -194,15 +165,17 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val dialog = buildInputDialog(
-            titleKey = "login.dialog-title",
-            welcomeMessageKey = "login.welcome-message",
-            descriptionKey = "login.dialog-description",
-            descriptionArgs = arrayOf("attempts" to attemptsLeft),
-            inputId = "login_password",
-            buttonKey = "login.dialog-button",
-            action = loginAction,
-            errorMessage = errorMessage
+        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+        val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
+            .action(loginAction)
+            .build()
+
+        val dialog = LoginUI.buildLoginDialog(
+            player,
+            plugin.messageManager.getComponent("login.dialog-title"),
+            null,  // welcomeMessage已移除，可在UI配置文件中自定义
+            errorComponent,
+            confirmButton
         )
         player.showDialog(dialog)
     }
@@ -211,11 +184,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     /**
      * 显示注册对话框（包含密码和确认密码两个输入框）
      */
-    private fun showRegisterDialog(player: Player, description: String, errorMessage: String? = null) {
+    fun showRegisterDialog(player: Player, description: String, errorMessage: String? = null) {
         // 开始防作弊状态（仅在第一次调用时）
         if (!plugin.antiCheatManager.isAuthenticating(player)) {
             plugin.antiCheatManager.startAuthenticating(player)
         }
+
+        // 设置对话框类型
+        plugin.antiCheatManager.setPlayerDialogType(player, "register")
 
         // 取消之前的超时任务（如果有）
         plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
@@ -276,6 +252,8 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     plugin.server.scheduler.runTask(plugin, Runnable {
                         if (success) {
                             player.sendMessage(plugin.messageManager.getComponent("register.success"))
+                            // 标记玩家为已登录
+                            loggedInPlayers[player.uniqueId] = true
                             // 结束防作弊状态
                             plugin.antiCheatManager.endAuthenticating(player)
                         } else {
@@ -287,98 +265,21 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val dialog = buildRegisterDialog(
-            titleKey = "register.dialog-title",
-            welcomeMessageKey = "register.welcome-message",
-            descriptionKey = "register.dialog-description",
-            descriptionArgs = arrayOf("description" to description),
-            buttonKey = "register.dialog-button",
-            action = registerAction,
-            errorMessage = errorMessage
+        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+        val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("register.dialog-button"))
+            .action(registerAction)
+            .build()
+
+        val dialog = LoginUI.buildRegisterDialog(
+            player,
+            plugin.messageManager.getComponent("register.dialog-title"),
+            null,  // welcomeMessage已移除，可在UI配置文件中自定义
+            errorComponent,
+            confirmButton
         )
         player.showDialog(dialog)
     }
 
-
-    /**
-     * 提取出的通用对话框构建方法（支持本地化，单个输入框）
-     */
-    private fun buildInputDialog(
-        titleKey: String,
-        welcomeMessageKey: String? = null,
-        descriptionKey: String,
-        descriptionArgs: Array<Pair<String, Any>> = emptyArray(),
-        inputId: String,
-        buttonKey: String,
-        action: DialogAction,
-        errorMessage: String? = null
-    ): Dialog {
-        val confirmButton = ActionButton.builder(getLocalizedButton(buttonKey))
-            .action(action)
-            .build()
-
-        val bodyList = mutableListOf<DialogBody>()
-
-        // 添加欢迎消息（如果有）- 放在最上方
-        if (welcomeMessageKey != null) {
-            bodyList.add(DialogBody.plainMessage(getLocalizedTitle(welcomeMessageKey)))
-        }
-
-        // 添加错误消息（如果有）- 放在 inputs 之后、按钮之前
-        if (errorMessage != null) {
-            bodyList.add(DialogBody.plainMessage(plugin.messageManager.getComponentFromMessage(errorMessage)))
-        }
-
-        val base = DialogBase.builder(getLocalizedTitle(titleKey))
-            .canCloseWithEscape(false)
-            .body(bodyList)
-            .inputs(listOf(
-                DialogInput.text(inputId, getLocalizedDescription(descriptionKey, *descriptionArgs)).build()
-            ))
-            .build()
-
-        return Dialog.create { it.empty().base(base).type(DialogType.notice(confirmButton)) }
-    }
-
-    /**
-     * 注册对话框构建方法（包含密码和确认密码两个输入框）
-     */
-    private fun buildRegisterDialog(
-        titleKey: String,
-        welcomeMessageKey: String? = null,
-        descriptionKey: String,
-        descriptionArgs: Array<Pair<String, Any>> = emptyArray(),
-        buttonKey: String,
-        action: DialogAction,
-        errorMessage: String? = null
-    ): Dialog {
-        val confirmButton = ActionButton.builder(getLocalizedButton(buttonKey))
-            .action(action)
-            .build()
-
-        val bodyList = mutableListOf<DialogBody>()
-
-        // 添加欢迎消息（如果有）- 放在最上方
-        if (welcomeMessageKey != null) {
-            bodyList.add(DialogBody.plainMessage(getLocalizedTitle(welcomeMessageKey)))
-        }
-
-        // 添加错误消息（如果有）- 放在 inputs 之后、按钮之前
-        if (errorMessage != null) {
-            bodyList.add(DialogBody.plainMessage(plugin.messageManager.getComponentFromMessage(errorMessage)))
-        }
-
-        val base = DialogBase.builder(getLocalizedTitle(titleKey))
-            .canCloseWithEscape(false)
-            .body(bodyList)
-            .inputs(listOf(
-                DialogInput.text("reg_password", getLocalizedDescription("register.password-input", *descriptionArgs)).build(),
-                DialogInput.text("reg_confirm_password", getLocalizedDescription("register.confirm-password-input")).build()
-            ))
-            .build()
-
-        return Dialog.create { it.empty().base(base).type(DialogType.notice(confirmButton)) }
-    }
 
     /**
      * 清理玩家的登录数据（供 AntiCheatManager 调用）
@@ -386,5 +287,12 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     fun clearPlayerData(uuid: UUID) {
         loginAttempts.remove(uuid)
         loggedInPlayers.remove(uuid)
+    }
+
+    /**
+     * 检查玩家是否已登录
+     */
+    fun isLoggedIn(uuid: UUID): Boolean {
+        return loggedInPlayers[uuid] == true
     }
 }

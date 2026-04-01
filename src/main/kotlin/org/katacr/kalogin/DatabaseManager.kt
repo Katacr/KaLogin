@@ -56,6 +56,7 @@ class DatabaseManager(private val plugin: KaLogin) {
                 password TEXT,
                 ip VARCHAR(45),
                 last_login_ip VARCHAR(45),
+                auto_login_by_ip BOOLEAN DEFAULT FALSE,
                 reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """.trimIndent()
@@ -64,6 +65,8 @@ class DatabaseManager(private val plugin: KaLogin) {
 
         // 检查并添加 last_login_ip 字段（用于数据库升级）
         addColumnIfNotExists("last_login_ip", "VARCHAR(45)")
+        // 检查并添加 auto_login_by_ip 字段（用于数据库升级）
+        addColumnIfNotExists("auto_login_by_ip", "BOOLEAN DEFAULT FALSE")
     }
 
     /**
@@ -109,7 +112,7 @@ class DatabaseManager(private val plugin: KaLogin) {
     fun registerPlayer(uuid: UUID, username: String, password: String, ip: String): CompletableFuture<Boolean> {
         return CompletableFuture.supplyAsync({
             val hashedPassword = PasswordHasher.hash(password)
-            val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip) VALUES (?, ?, ?, ?, ?)"
+            val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip, auto_login_by_ip) VALUES (?, ?, ?, ?, ?, FALSE)"
 
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -150,6 +153,32 @@ class DatabaseManager(private val plugin: KaLogin) {
     }
 
     /**
+     * 检查玩家是否启用同IP自动登录且IP与上次相同
+     */
+    fun canAutoLogin(uuid: UUID, ip: String): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "SELECT last_login_ip, auto_login_by_ip FROM kalogin_users WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery()?.use { rs ->
+                        if (rs.next()) {
+                            val lastIp = rs.getString("last_login_ip")
+                            val autoLoginByIp = rs.getBoolean("auto_login_by_ip")
+                            autoLoginByIp && (lastIp != null && lastIp == ip)
+                        } else {
+                            false
+                        }
+                    }
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    /**
      * 检查玩家 IP 是否与上次登录相同
      */
     fun isSameLastIp(uuid: UUID, ip: String): CompletableFuture<Boolean> {
@@ -166,6 +195,26 @@ class DatabaseManager(private val plugin: KaLogin) {
                             false
                         }
                     }
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    /**
+     * 更新玩家的自动登录设置
+     */
+    fun updateAutoLoginByIp(uuid: UUID, enabled: Boolean): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "UPDATE kalogin_users SET auto_login_by_ip = ? WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setBoolean(1, enabled)
+                    ps.setString(2, uuid.toString())
+                    ps.executeUpdate()
+                    true
                 }
             } catch (e: SQLException) {
                 e.printStackTrace()
