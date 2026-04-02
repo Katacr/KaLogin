@@ -153,6 +153,39 @@ class DatabaseManager(private val plugin: KaLogin) {
     }
 
     /**
+     * 为 AuthMe 模式初始化玩家记录
+     * 只存储 IP 相关信息，不存储密码
+     */
+    fun initPlayerForAuthMe(uuid: UUID, username: String, ip: String): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "INSERT INTO kalogin_users (uuid, username, last_login_ip, auto_login_by_ip) VALUES (?, ?, ?, FALSE)"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.setString(2, username)
+                    ps.setString(3, ip)
+                    ps.executeUpdate()
+                    true
+                }
+            } catch (e: SQLException) {
+                // 可能是唯一键冲突，玩家已存在，尝试更新
+                try {
+                    val updateSql = "UPDATE kalogin_users SET username = ?, last_login_ip = ? WHERE uuid = ?"
+                    getConnection()?.prepareStatement(updateSql)?.use { ps ->
+                        ps.setString(1, username)
+                        ps.setString(2, ip)
+                        ps.setString(3, uuid.toString())
+                        ps.executeUpdate() > 0
+                    }
+                } catch (e2: SQLException) {
+                    e.printStackTrace()
+                    false
+                }
+            }
+        })
+    }
+
+    /**
      * 检查玩家是否启用同IP自动登录且IP与上次相同
      */
     fun canAutoLogin(uuid: UUID, ip: String): CompletableFuture<Boolean> {

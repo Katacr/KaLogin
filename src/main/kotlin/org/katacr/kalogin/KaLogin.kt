@@ -12,6 +12,7 @@ class KaLogin : JavaPlugin() {
     lateinit var messageManager: MessageManager
     lateinit var antiCheatManager: AntiCheatManager
     lateinit var loginListener: LoginListener
+    lateinit var authMeManager: AuthMeManager
 
     /**
      * 在插件加载时优先处理依赖下载
@@ -74,14 +75,24 @@ class KaLogin : JavaPlugin() {
         // 初始化防作弊管理器
         antiCheatManager = AntiCheatManager(this)
 
-        // 初始化数据库
+        // 初始化 AuthMe 集成
+        authMeManager = AuthMeManager(this)
+        authMeManager.init()
+
+        // 初始化数据库（始终初始化，因为 AuthMe 模式下也需要存储 IP 信息）
         dbManager = DatabaseManager(this)
         dbManager.init()
 
         // 创建并注册监听器
         loginListener = LoginListener(this)
-        server.pluginManager.registerEvents(loginListener, this)
-        server.pluginManager.registerEvents(antiCheatManager, this)
+        if (!authMeManager.useAuthMe) {
+            server.pluginManager.registerEvents(loginListener, this)
+            server.pluginManager.registerEvents(antiCheatManager, this)
+        } else {
+            // AuthMe 模式下注册 AuthMe 登录监听器
+            // AuthMe 会自己处理反作弊，不需要 KaLogin 的 antiCheatManager
+            server.pluginManager.registerEvents(AuthMeLoginListener(this), this)
+        }
 
         // 注册指令
         registerCommands()
@@ -120,15 +131,18 @@ class KaLogin : JavaPlugin() {
     }
 
     private fun registerCommands() {
-        val commandExecutor = KaLoginCommand(this)
+        // 根据是否使用 AuthMe 选择命令执行器
+        val commandExecutor = if (authMeManager.useAuthMe) {
+            AuthMeCommandExecutor(this)
+        } else {
+            KaLoginCommand(this)
+        }
 
         // 注册主指令 kalogin
         getCommand("kalogin")?.setExecutor(commandExecutor)
-        getCommand("kalogin")?.setTabCompleter(commandExecutor)
 
         // 注册别名 kl
         getCommand("kl")?.setExecutor(commandExecutor)
-        getCommand("kl")?.setTabCompleter(commandExecutor)
 
         // 注册修改密码指令
         val changePasswordCommand = ChangePasswordCommand(this)

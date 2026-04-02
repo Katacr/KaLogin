@@ -140,12 +140,10 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.player
         if (!isAuthenticating(player)) return
 
-        // 检测任何移动（包括位置移动和视角移动）
+        // 只检测位置移动，不检测视角移动
         val hasMoved = event.from.x != event.to.x ||
                       event.from.y != event.to.y ||
-                      event.from.z != event.to.z ||
-                      event.from.yaw != event.to.yaw ||
-                      event.from.pitch != event.to.pitch
+                      event.from.z != event.to.z
 
         if (!hasMoved) return
 
@@ -164,9 +162,24 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (!isAuthenticating(player)) return@Runnable
 
+                // 根据 use-AuthMe 配置决定调用哪个监听器的方法
                 when (dialogType) {
-                    "login" -> plugin.loginListener.showLoginDialog(player)
-                    "register" -> plugin.loginListener.showRegisterDialog(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                    "login" -> {
+                        if (plugin.config.getBoolean("use-AuthMe", false)) {
+                            // AuthMe 模式下，这里不应该被调用，因为 AuthMeLoginListener 有自己的防抖机制
+                            plugin.logger.warning("AntiCheatManager trying to show login dialog in AuthMe mode")
+                        } else {
+                            plugin.loginListener.showLoginDialog(player)
+                        }
+                    }
+                    "register" -> {
+                        if (plugin.config.getBoolean("use-AuthMe", false)) {
+                            // AuthMe 模式下，这里不应该被调用，因为 AuthMeLoginListener 有自己的防抖机制
+                            plugin.logger.warning("AntiCheatManager trying to show register dialog in AuthMe mode")
+                        } else {
+                            plugin.loginListener.showRegisterDialog(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                        }
+                    }
                 }
             })
         }

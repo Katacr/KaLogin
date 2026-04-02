@@ -32,6 +32,7 @@ login:
   dialog-description: "请输入你的密码：（剩余尝试次数: {attempts}）"
   dialog-button: "登录"
   auto-login-checkbox: "同IP自动登录"
+  password-input: "请输入密码："
 
 # 注册相关
 register:
@@ -55,8 +56,11 @@ register:
 change-password:
   old-password-empty: "&c旧密码不能为空！"
   old-password-wrong: "&c旧密码错误，请重试。剩余尝试次数: &e{attempts}"
+  old-password-input: "请输入旧密码："
   new-password-empty: "&c新密码不能为空！"
   new-password-invalid: "&c新密码验证失败: {error}"
+  new-password-input: "请输入新密码："
+  confirm-new-password-input: "请再次输入新密码以确认："
   same-password: "&c新密码不能与旧密码相同！"
   password-mismatch: "&c两次输入的新密码不一致，请重新设置。"
   too-many-attempts: "&c旧密码验证失败次数过多！"
@@ -85,12 +89,28 @@ password-validation:
 
 # 插件相关
 plugin:
-  enabled: "KaLogin 已启动！"
-  disabled: "KaLogin 已停止！"
+  enabled: "&aKaLogin 插件已启用！"
+  disabled: "&aKaLogin 插件已禁用！"
 
 # 防作弊相关
 anti-cheat:
   chat-blocked: "&c请在完成注册/登录后再进行聊天"
   command-blocked: "&c请在完成注册/登录后再使用命令"
   action-blocked: "&c请在完成注册/登录后再进行此操作"
+
+# AuthMe 相关
+authme:
+  enabled: "已启用 AuthMe 集成"
+  not-found: "未找到 AuthMe 插件"
+  command-help-delete: "/kalogin delete <玩家> - 删除玩家数据 (AuthMe)"
+  command-help-register: "/kalogin register <玩家> <密码> - 为玩家设置密码 (AuthMe)"
+  command-help-reload: "/kalogin reload - 重载配置文件 (KaLogin)"
+  unknown-command: "未知命令: {command}"
+  delete-usage: "用法: /kalogin delete <玩家>"
+  delete-success: "已删除玩家 {player} 的数据"
+  register-usage: "用法: /kalogin register <玩家> <密码>"
+  register-set-success: "已为玩家 {player} 设置密码"
+  register-failed: "注册失败，玩家可能已存在"
+  player-only: "只有玩家可以使用此命令！"
+  fallback-to-builtin: "回退到 KaLogin 内置认证系统"
 

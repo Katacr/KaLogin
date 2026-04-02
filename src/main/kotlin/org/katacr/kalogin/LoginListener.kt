@@ -32,6 +32,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         val player = event.player
         val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
 
+        // 如果使用 AuthMe 模式，由 AuthMeLoginListener 处理自动登录检查
+        if (plugin.authMeManager.useAuthMe) {
+            // AuthMe 模式下初始化玩家记录
+            plugin.authMeManager.initPlayerInDatabase(player)
+            return
+        }
+
+        // KaLogin 模式：以下逻辑
         // 重置登录错误次数
         loginAttempts.remove(player.uniqueId)
 

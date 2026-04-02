@@ -320,7 +320,7 @@ object LoginUI {
 
         // 添加密码输入框
         inputList.add(
-            DialogInput.text("login_password", Component.text("请输入密码:"))
+            DialogInput.text("login_password", plugin.messageManager.getComponent("login.password-input"))
                 .labelVisible(true)
                 .maxLength(64)
                 .build()
@@ -371,7 +371,7 @@ object LoginUI {
 
         // 添加密码输入框
         inputList.add(
-            DialogInput.text("reg_password", Component.text("请输入你的密码："))
+            DialogInput.text("reg_password", plugin.messageManager.getComponent("register.password-input"))
                 .labelVisible(true)
                 .maxLength(64)
                 .build()
@@ -379,7 +379,7 @@ object LoginUI {
 
         // 添加确认密码输入框
         inputList.add(
-            DialogInput.text("reg_confirm_password", Component.text("请再次输入密码以确认："))
+            DialogInput.text("reg_confirm_password", plugin.messageManager.getComponent("register.confirm-password-input"))
                 .labelVisible(true)
                 .maxLength(64)
                 .build()
@@ -424,7 +424,7 @@ object LoginUI {
 
         // 添加旧密码输入框
         inputList.add(
-            DialogInput.text("old_password", Component.text("请输入旧密码："))
+            DialogInput.text("old_password", plugin.messageManager.getComponent("change-password.old-password-input"))
                 .labelVisible(true)
                 .maxLength(64)
                 .build()
@@ -432,7 +432,7 @@ object LoginUI {
 
         // 添加新密码输入框
         inputList.add(
-            DialogInput.text("new_password", Component.text("请输入新密码："))
+            DialogInput.text("new_password", plugin.messageManager.getComponent("change-password.new-password-input"))
                 .labelVisible(true)
                 .maxLength(64)
                 .build()
@@ -440,7 +440,7 @@ object LoginUI {
 
         // 添加确认新密码输入框
         inputList.add(
-            DialogInput.text("confirm_new_password", Component.text("请再次输入新密码以确认："))
+            DialogInput.text("confirm_new_password", plugin.messageManager.getComponent("change-password.confirm-new-password-input"))
                 .labelVisible(true)
                 .maxLength(64)
                 .build()

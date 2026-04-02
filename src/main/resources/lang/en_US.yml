@@ -32,6 +32,7 @@ login:
   dialog-description: "Please enter your password: (Attempts remaining: {attempts})"
   dialog-button: "Login"
   auto-login-checkbox: "Auto-login with same IP"
+  password-input: "Please enter your password:"
 
 # Registration related
 register:
@@ -55,8 +56,11 @@ register:
 change-password:
   old-password-empty: "&cOld password cannot be empty!"
   old-password-wrong: "&cOld password incorrect, please try again. Attempts remaining: &e{attempts}"
+  old-password-input: "Please enter your old password:"
   new-password-empty: "&cNew password cannot be empty!"
   new-password-invalid: "&cNew password validation failed: {error}"
+  new-password-input: "Please enter your new password:"
+  confirm-new-password-input: "Please enter your new password again to confirm:"
   same-password: "&cNew password cannot be the same as old password!"
   password-mismatch: "&cNew passwords do not match, please set again."
   too-many-attempts: "&cToo many failed old password verification attempts!"
@@ -85,12 +89,28 @@ password-validation:
 
 # Plugin related
 plugin:
-  enabled: "KaLogin has started!"
-  disabled: "KaLogin has stopped!"
+  enabled: "&aKaLogin plugin enabled!"
+  disabled: "&aKaLogin plugin disabled!"
 
 # Anti-cheat related
 anti-cheat:
   chat-blocked: "&cPlease complete registration/login before chatting"
   command-blocked: "&cPlease complete registration/login before using commands"
   action-blocked: "&cPlease complete registration/login before performing this action"
+
+# AuthMe related
+authme:
+  enabled: "AuthMe integration enabled"
+  not-found: "AuthMe plugin not found"
+  command-help-delete: "/kalogin delete <player> - Delete player data (AuthMe)"
+  command-help-register: "/kalogin register <player> <password> - Set password for player (AuthMe)"
+  command-help-reload: "/kalogin reload - Reload configuration (KaLogin)"
+  unknown-command: "Unknown command: {command}"
+  delete-usage: "Usage: /kalogin delete <player>"
+  delete-success: "Deleted data for player {player}"
+  register-usage: "Usage: /kalogin register <player> <password>"
+  register-set-success: "Password set for player {player}"
+  register-failed: "Registration failed, player may already exist"
+  player-only: "Only players can use this command!"
+  fallback-to-builtin: "Falling back to KaLogin's built-in authentication"
 

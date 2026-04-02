@@ -13,6 +13,7 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import java.time.Duration
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
 class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
@@ -28,16 +29,25 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
     ): Boolean {
         // 只有玩家可以使用此命令
         if (sender !is Player) {
-            sender.sendMessage("只有玩家可以使用此命令！")
+            plugin.messageManager.sendMessage(sender, "authme.player-only")
             return true
         }
 
         val player = sender
 
         // 检查玩家是否已登录
-        if (!plugin.loginListener.isLoggedIn(player.uniqueId)) {
-            plugin.messageManager.sendMessage(player, "anti-cheat.command-blocked")
-            return true
+        if (plugin.authMeManager.useAuthMe) {
+            // AuthMe 模式：使用 AuthMe 的认证状态
+            if (!plugin.authMeManager.isAuthenticated(player)) {
+                plugin.messageManager.sendMessage(player, "anti-cheat.command-blocked")
+                return true
+            }
+        } else {
+            // KaLogin 模式：使用 KaLogin 的认证状态
+            if (!plugin.loginListener.isLoggedIn(player.uniqueId)) {
+                plugin.messageManager.sendMessage(player, "anti-cheat.command-blocked")
+                return true
+            }
         }
 
         // 显示修改密码对话框
@@ -67,7 +77,16 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                 }
 
                 // 验证旧密码是否正确
-                plugin.dbManager.verifyPassword(player.uniqueId, oldPassword).thenAccept { isOldPasswordValid: Boolean ->
+                val verifyPasswordTask = if (plugin.authMeManager.useAuthMe) {
+                    // AuthMe 模式：使用 AuthMe API
+                    val isValid = plugin.authMeManager.checkPassword(player.name, oldPassword)
+                    CompletableFuture.completedFuture(isValid)
+                } else {
+                    // KaLogin 模式：使用数据库
+                    plugin.dbManager.verifyPassword(player.uniqueId, oldPassword)
+                }
+
+                verifyPasswordTask.thenAccept { isOldPasswordValid: Boolean ->
                     if (!isOldPasswordValid) {
                         val currentAttempts = (changePasswordAttempts[player.name] ?: 0) + 1
                         changePasswordAttempts[player.name] = currentAttempts
@@ -134,14 +153,23 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                     // 更新密码
                     player.sendMessage(plugin.messageManager.getComponent("change-password.saving"))
 
-                    plugin.dbManager.setPassword(player.uniqueId, newPassword).thenAccept { success: Boolean ->
+                    if (plugin.authMeManager.useAuthMe) {
+                        // AuthMe 模式：使用 AuthMe API
+                        plugin.authMeManager.changePassword(player.name, newPassword)
                         plugin.server.scheduler.runTask(plugin, Runnable {
-                            if (success) {
-                                player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
-                            } else {
-                                player.sendMessage(plugin.messageManager.getComponent("change-password.failed"))
-                            }
+                            player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
                         })
+                    } else {
+                        // KaLogin 模式：使用数据库
+                        plugin.dbManager.setPassword(player.uniqueId, newPassword).thenAccept { success: Boolean ->
+                            plugin.server.scheduler.runTask(plugin, Runnable {
+                                if (success) {
+                                    player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
+                                } else {
+                                    player.sendMessage(plugin.messageManager.getComponent("change-password.failed"))
+                                }
+                            })
+                        }
                     }
                 }
             },
