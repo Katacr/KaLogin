@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.katacr.kalogin.listener.KaLoginAPI
 import java.time.Duration
 
 /**
@@ -136,6 +137,9 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         // 清理防抖记录，允许立即显示登录对话框
         lastDialogReshowTimes.remove(player.uniqueId)
 
+        // 触发登出事件
+        KaLoginAPI.getInstance()?.callPlayerLogout(player)
+
         // 显示登录对话框
         showLoginDialog(player)
     }
@@ -148,6 +152,9 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         // 清理防抖记录，允许立即显示注册对话框
         lastDialogReshowTimes.remove(player.uniqueId)
 
+        // 触发注销账户事件
+        KaLoginAPI.getInstance()?.callPlayerUnregister(player)
+
         // 显示注册对话框
         showRegisterDialog(player)
     }
@@ -155,8 +162,11 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     @EventHandler
     fun onAuthMeUnregisterByAdmin(event: fr.xephi.authme.events.UnregisterByAdminEvent) {
         val player = event.player
+        val playerName = event.playerName
 
-        // 管理员通过 AuthMe 注销玩家，通知在线玩家显示注册界面
+        // 触发管理员注销账户事件
+        KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
+
         // 如果玩家在线，显示注册界面
         if (player != null && player.isOnline) {
             // 清理防抖记录，允许立即显示注册对话框
@@ -213,6 +223,9 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
                         // 清理防抖记录
                         lastDialogReshowTimes.remove(player.uniqueId)
+
+                        // 触发登录成功事件
+                        KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
                     } else {
                         // 密码错误
                         val currentAttempts = (loginAttempts[player.uniqueId] ?: 0) + 1
@@ -220,15 +233,22 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
                         val remainingAttempts = maxAttempts - currentAttempts
                         if (remainingAttempts > 0) {
+                            // 触发登录失败事件
+                            KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, remainingAttempts)
                             showLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to remainingAttempts))
                         } else {
                             player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
+                            // 触发登录失败事件（剩余次数为0）
+                            KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, 0)
                         }
                     }
                 } catch (e: Exception) {
                     // 捕获 AuthMe 验证异常
                     plugin.logger.warning("AuthMe login check failed for player ${player.name}: ${e.message}")
                     e.printStackTrace()
+
+                    // 触发登录失败事件
+                    KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, maxAttempts - (loginAttempts[player.uniqueId] ?: 0))
 
                     // 显示通用错误消息
                     showLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to (maxAttempts - (loginAttempts[player.uniqueId] ?: 0))))
@@ -295,14 +315,22 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
                         // 清理防抖记录
                         lastDialogReshowTimes.remove(player.uniqueId)
+
+                        // 触发注册成功事件
+                        KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
                     } else {
                         // 注册失败，重新显示注册界面
+                        // 触发注册失败事件
+                        KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, "Registration failed")
                         showRegisterDialog(player, plugin.messageManager.getMessage("register.failed"))
                     }
                 } catch (e: Exception) {
                     // 捕获 AuthMe 注册异常，获取具体错误信息
                     plugin.logger.warning("AuthMe registration failed for player ${player.name}: ${e.message}")
                     e.printStackTrace()
+
+                    // 触发注册失败事件
+                    KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, e.message ?: "Unknown error")
 
                     // 根据异常类型显示不同的错误消息
                     val errorMessage = when {

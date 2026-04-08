@@ -8,6 +8,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.katacr.kalogin.listener.KaLoginAPI
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -48,15 +49,17 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             if (registered) {
                 // 已注册，检查玩家是否启用同IP自动登录
                 plugin.dbManager.canAutoLogin(player.uniqueId, currentIp).thenAccept { canAutoLogin ->
-                    plugin.server.scheduler.runTask(plugin, Runnable {
-                        if (canAutoLogin) {
-                            // IP 相同且玩家启用了自动登录，自动登录
-                            player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
-                            loggedInPlayers[player.uniqueId] = true
-                            plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
-                            // 结束防作弊状态
-                            plugin.antiCheatManager.endAuthenticating(player)
-                        } else {
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    if (canAutoLogin) {
+                        // IP 相同且玩家启用了自动登录，自动登录
+                        player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
+                        loggedInPlayers[player.uniqueId] = true
+                        plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
+                        // 结束防作弊状态
+                        plugin.antiCheatManager.endAuthenticating(player)
+                        // 触发自动登录事件
+                        KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                    } else {
                             // 显示登录对话框
                             showLoginDialog(player)
                         }
@@ -155,16 +158,23 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 plugin.dbManager.updateAutoLoginByIp(player.uniqueId, autoLoginCheckbox)
                                 // 结束防作弊状态
                                 plugin.antiCheatManager.endAuthenticating(player)
+
+                                // 触发登录成功事件
+                                KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
                             } else {
                             val currentAttempts = (loginAttempts[player.uniqueId] ?: 0) + 1
                             loginAttempts[player.uniqueId] = currentAttempts
 
                             val remainingAttempts = maxAttempts - currentAttempts
                             if (remainingAttempts > 0) {
+                                // 触发登录失败事件
+                                KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, remainingAttempts)
                                 showLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to remainingAttempts))
                             } else {
                                 player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
                                 plugin.antiCheatManager.endAuthenticating(player)
+                                // 触发登录失败事件（剩余次数为0）
+                                KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, 0)
                             }
                         }
                     })
@@ -264,8 +274,13 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             loggedInPlayers[player.uniqueId] = true
                             // 结束防作弊状态
                             plugin.antiCheatManager.endAuthenticating(player)
+                            // 触发注册成功事件
+                            val ip = player.address?.address?.hostAddress ?: "127.0.0.1"
+                            KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, ip)
                         } else {
                             player.sendMessage(plugin.messageManager.getComponent("register.failed"))
+                            // 触发注册失败事件
+                            KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, "Database error")
                         }
                     })
                 }

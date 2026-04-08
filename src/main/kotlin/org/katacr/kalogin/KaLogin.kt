@@ -4,6 +4,7 @@ import net.byteflux.libby.BukkitLibraryManager
 import net.byteflux.libby.Library
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
+import org.katacr.kalogin.listener.KaLoginAPI
 import java.io.File
 
 class KaLogin : JavaPlugin() {
@@ -83,6 +84,10 @@ class KaLogin : JavaPlugin() {
         dbManager = DatabaseManager(this)
         dbManager.init()
 
+        // 初始化 KaLogin API
+        val api = KaLoginAPI.getInstance()
+        api?.setEnabled(true)
+
         // 创建并注册监听器
         loginListener = LoginListener(this)
         if (!authMeManager.useAuthMe) {
@@ -152,6 +157,11 @@ class KaLogin : JavaPlugin() {
     override fun onDisable() {
         dbManager.close()
         antiCheatManager.clearAll()
+
+        // 关闭 KaLogin API
+        val api = KaLoginAPI.getInstance()
+        api?.setEnabled(false)
+
         logger.info(messageManager.getMessage("plugin.disabled"))
     }
 }

@@ -12,6 +12,7 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import org.katacr.kalogin.listener.KaLoginAPI
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
@@ -95,10 +96,14 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                         if (currentAttempts >= maxAttempts) {
                             player.sendMessage(plugin.messageManager.getComponent("change-password.too-many-attempts"))
                             changePasswordAttempts.remove(player.name)
+                            // 触发修改密码失败事件（尝试次数过多）
+                            KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Too many attempts")
                             return@thenAccept
                         }
 
                         plugin.server.scheduler.runTask(plugin, Runnable {
+                            // 触发修改密码失败事件（旧密码错误）
+                            KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Old password incorrect")
                             showChangePasswordDialog(
                                 player,
                                 plugin.messageManager.getMessage(
@@ -114,6 +119,8 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                     val validationError = passwordValidator.validate(newPassword)
                     if (validationError != null) {
                         plugin.server.scheduler.runTask(plugin, Runnable {
+                            // 触发修改密码失败事件（新密码不符合要求）
+                            KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Invalid password format: $validationError")
                             showChangePasswordDialog(
                                 player,
                                 plugin.messageManager.getMessage(
@@ -128,6 +135,8 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                     // 验证新旧密码不能相同
                     if (oldPassword == newPassword) {
                         plugin.server.scheduler.runTask(plugin, Runnable {
+                            // 触发修改密码失败事件（新旧密码相同）
+                            KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "New password same as old password")
                             showChangePasswordDialog(
                                 player,
                                 plugin.messageManager.getMessage("change-password.same-password")
@@ -139,6 +148,8 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                     // 验证两次新密码是否一致
                     if (newPassword != confirmNewPassword) {
                         plugin.server.scheduler.runTask(plugin, Runnable {
+                            // 触发修改密码失败事件（两次密码不一致）
+                            KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Passwords do not match")
                             showChangePasswordDialog(
                                 player,
                                 plugin.messageManager.getMessage("change-password.password-mismatch")
@@ -158,6 +169,8 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                         plugin.authMeManager.changePassword(player.name, newPassword)
                         plugin.server.scheduler.runTask(plugin, Runnable {
                             player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
+                            // 触发修改密码成功事件
+                            KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
                         })
                     } else {
                         // KaLogin 模式：使用数据库
@@ -165,8 +178,12 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
                             plugin.server.scheduler.runTask(plugin, Runnable {
                                 if (success) {
                                     player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
+                                    // 触发修改密码成功事件
+                                    KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
                                 } else {
                                     player.sendMessage(plugin.messageManager.getComponent("change-password.failed"))
+                                    // 触发修改密码失败事件
+                                    KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Database error")
                                 }
                             })
                         }
