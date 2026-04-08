@@ -275,6 +275,237 @@ A: 使用 `/changepassword` 或 `/cp` 命令，通过修改密码界面进行操
 A: 在登录界面底部有一个"同 IP 自动登录"的复选框，勾选后即可启用自动登录。每个用户可以独立设置。
 
 
+## 开放 API
+
+KaLogin 提供开放的 API 接口，允许其他插件监听玩家的登录、注册、修改密码等操作。
+
+### 添加依赖
+
+将`KaLogin-1.3.1.jar`插件本体复制到你项目内的libs文件夹，并在你的插件的 `build.gradle.kts` 中添加 KaLogin 作为软依赖：
+
+```kotlin
+dependencies {
+    compileOnly(fileTree("libs") { include("KaLogin-1.3.1.jar") })
+}
+```
+
+在你的插件的 `plugin.yml` 中添加软依赖：
+
+```yaml
+softdepend:
+  - KaLogin
+```
+
+### API 概述
+
+KaLogin 提供两种使用方式：
+1. **Bukkit 事件系统** - 使用标准的 Bukkit Event API
+2. **KaLoginListener 接口** - 使用 KaLogin 提供的专用监听器接口
+
+### 使用 Bukkit 事件系统
+
+KaLogin 定义了以下事件类，位于 `org.katacr.kalogin.listener` 包中：
+
+| 事件类 | 说明 | 包含数据 |
+|--------|------|----------|
+| `PlayerLoginSuccessEvent` | 玩家登录成功 | `player`, `ip`, `isAutoLogin` |
+| `PlayerLoginFailedEvent` | 玩家登录失败 | `player`, `remainingAttempts` |
+| `PlayerAutoLoginEvent` | 玩家自动登录成功 | `player`, `ip` |
+| `PlayerRegisterSuccessEvent` | 玩家注册成功 | `player`, `ip` |
+| `PlayerRegisterFailedEvent` | 玩家注册失败 | `player`, `reason` |
+| `PlayerChangePasswordSuccessEvent` | 修改密码成功 | `player` |
+| `PlayerChangePasswordFailedEvent` | 修改密码失败 | `player`, `reason` |
+| `PlayerLogoutEvent` | 玩家登出 | `player` |
+| `PlayerUnregisterEvent` | 玩家注销账户 | `player` |
+| `PlayerAdminUnregisterEvent` | 管理员注销账户 | `playerName` |
+
+**示例代码：**
+
+```kotlin
+package com.example.plugin
+
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.plugin.java.JavaPlugin
+import org.katacr.kalogin.listener.*
+
+class MyPlugin : JavaPlugin(), Listener {
+
+    override fun onEnable() {
+        server.pluginManager.registerEvents(this, this)
+    }
+
+    @EventHandler
+    fun onPlayerLoginSuccess(event: PlayerLoginSuccessEvent) {
+        val player = event.player
+        val ip = event.ip
+        val isAutoLogin = event.isAutoLogin
+
+        if (isAutoLogin) {
+            logger.info("玩家 ${player.name} 通过自动登录成功")
+        } else {
+            logger.info("玩家 ${player.name} 登录成功，IP: $ip")
+        }
+    }
+
+    @EventHandler
+    fun onPlayerLoginFailed(event: PlayerLoginFailedEvent) {
+        val player = event.player
+        val remaining = event.remainingAttempts
+
+        logger.warning("玩家 ${player.name} 登录失败，剩余尝试次数: $remaining")
+    }
+
+    @EventHandler
+    fun onPlayerRegisterSuccess(event: PlayerRegisterSuccessEvent) {
+        logger.info("玩家 ${event.player.name} 注册成功")
+    }
+
+    @EventHandler
+    fun onPlayerLogout(event: PlayerLogoutEvent) {
+        logger.info("玩家 ${event.player.name} 登出")
+    }
+}
+```
+
+### 使用 KaLoginListener 接口
+
+除了 Bukkit 事件系统，你还可以使用 KaLogin 提供的专用监听器接口：
+
+**示例代码：**
+
+```kotlin
+package com.example.plugin
+
+import org.bukkit.plugin.java.JavaPlugin
+import org.katacr.kalogin.listener.*
+
+class MyPlugin : JavaPlugin() {
+
+    private lateinit var myListener: MyKaLoginListener
+
+    override fun onEnable() {
+        // 获取 API 实例
+        val api = KaLoginAPI.getInstance()
+        if (api == null) {
+            logger.warning("KaLogin 未安装，API 功能不可用")
+            return
+        }
+
+        if (!api.isEnabled()) {
+            logger.warning("KaLogin 未启用，API 功能不可用")
+            return
+        }
+
+        // 创建并注册监听器
+        myListener = MyKaLoginListener(this)
+        api.registerListener(this, myListener)
+
+        logger.info("已注册 KaLogin 事件监听器")
+    }
+
+    override fun onDisable() {
+        // 注销监听器
+        if (::myListener.isInitialized) {
+            KaLoginAPI.getInstance()?.unregisterListener(this, myListener)
+        }
+    }
+}
+
+class MyKaLoginListener(private val plugin: MyPlugin) : KaLoginListener {
+
+    override fun onPlayerLoginSuccess(event: PlayerLoginSuccessEvent) {
+        plugin.logger.info("玩家 ${event.player.name} 登录成功！")
+    }
+
+    override fun onPlayerAutoLogin(event: PlayerAutoLoginEvent) {
+        plugin.logger.info("玩家 ${event.player.name} 自动登录成功！")
+    }
+
+    override fun onPlayerRegisterSuccess(event: PlayerRegisterSuccessEvent) {
+        plugin.logger.info("玩家 ${event.player.name} 注册成功！")
+    }
+
+    override fun onPlayerChangePasswordSuccess(event: PlayerChangePasswordSuccessEvent) {
+        plugin.logger.info("玩家 ${event.player.name} 修改密码成功！")
+    }
+}
+```
+
+### 检查玩家登录状态
+
+你可以在其他插件中检查玩家是否已登录：
+
+```kotlin
+// 使用 KaLoginAPI
+val api = KaLoginAPI.getInstance()
+if (api != null && api.isEnabled()) {
+    val player = server.getPlayer("Steve") ?: return
+    if (api.isPlayerLoggedIn(player)) {
+        player.sendMessage("你已经登录了！")
+    }
+}
+```
+
+### 事件参数详解
+
+#### PlayerLoginSuccessEvent
+```kotlin
+val player: Player       // 登录的玩家
+val ip: String           // 玩家 IP 地址
+val isAutoLogin: Boolean // 是否为自动登录
+```
+
+#### PlayerLoginFailedEvent
+```kotlin
+val player: Player       // 尝试登录的玩家
+val remainingAttempts: Int // 剩余尝试次数
+```
+
+#### PlayerAutoLoginEvent
+```kotlin
+val player: Player  // 自动登录的玩家
+val ip: String       // 玩家 IP 地址
+```
+
+#### PlayerRegisterSuccessEvent
+```kotlin
+val player: Player  // 注册的玩家
+val ip: String      // 玩家 IP 地址
+```
+
+#### PlayerRegisterFailedEvent
+```kotlin
+val player: Player  // 尝试注册的玩家
+val reason: String  // 失败原因
+```
+
+#### PlayerChangePasswordSuccessEvent
+```kotlin
+val player: Player  // 修改密码的玩家
+```
+
+#### PlayerChangePasswordFailedEvent
+```kotlin
+val player: Player  // 尝试修改密码的玩家
+val reason: String  // 失败原因，可能是：
+                   // - "Old password incorrect" - 旧密码错误
+                   // - "Too many attempts" - 尝试次数过多
+                   // - "Invalid password format: xxx" - 新密码格式错误
+                   // - "New password same as old password" - 新旧密码相同
+                   // - "Passwords do not match" - 两次密码不一致
+                   // - "Database error" - 数据库错误
+```
+
+### 注意事项
+
+1. **软依赖**：确保在你的插件中正确配置 `softdepend`，以确保 KaLogin 在你的插件之前加载
+2. **空值检查**：始终检查 `KaLoginAPI.getInstance()` 是否为 null
+3. **启用状态**：使用 `api.isEnabled()` 检查 KaLogin 是否已启用
+4. **事件线程**：所有事件都在主线程触发，可以安全地进行 Bukkit 操作
+5. **AuthMe 兼容**：当 KaLogin 使用 AuthMe 模式时，事件仍会正常触发
+
+
 ## 开源协议
 
 本项目采用开源协议，欢迎贡献代码。
