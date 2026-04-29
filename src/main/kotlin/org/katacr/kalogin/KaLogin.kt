@@ -60,15 +60,26 @@ class KaLogin : JavaPlugin() {
     }
 
     override fun onEnable() {
-        // 保存默认配置文件
-        saveDefaultConfig()
+        // 初始化消息管理器（需要在配置更新前初始化，因为 ConfigUpdater 需要它）
+        messageManager = MessageManager(this)
+        messageManager.init()
+        ConfigUpdater.setLanguageManager(messageManager)
+
+        // 检查并更新配置文件
+        val configFile = File(dataFolder, "config.yml")
+        if (configFile.exists()) {
+            val configUpdated = ConfigUpdater.checkAndUpdateConfig(this, configFile)
+            // 如果配置已更新，重新加载配置到内存
+            if (configUpdated) {
+                reloadConfig()
+            }
+        } else {
+            // 如果配置文件不存在，创建默认配置
+            saveDefaultConfig()
+        }
 
         // 加载UI配置文件
         loadUIConfigs()
-
-        // 初始化消息管理器
-        messageManager = MessageManager(this)
-        messageManager.init()
 
         // 初始化UI构建器
         LoginUI.init(this)
@@ -121,18 +132,7 @@ class KaLogin : JavaPlugin() {
                 saveResource("ui/$name.yml", false)
             }
         }
-
-        // 将UI配置加载到config中
-        val config = config
-        uiFolder.listFiles()?.filter { it.extension == "yml" }?.forEach { file ->
-            val uiConfig = YamlConfiguration.loadConfiguration(file)
-            val uiName = file.nameWithoutExtension
-            uiConfig.getKeys(false).forEach { key ->
-                config.set("ui.$uiName.$key", uiConfig.get(key))
-            }
-        }
-
-        saveConfig()
+        // 注意：不再将 UI 配置写入 config.yml，废弃的 ui 节点不再保留
     }
 
     private fun registerCommands() {
@@ -152,6 +152,10 @@ class KaLogin : JavaPlugin() {
         // 注册修改密码指令
         val changePasswordCommand = ChangePasswordCommand(this)
         getCommand("changepassword")?.setExecutor(changePasswordCommand)
+
+        // 注册登出指令
+        val logoutCommand = LogoutCommand(this)
+        getCommand("logout")?.setExecutor(logoutCommand)
     }
 
     override fun onDisable() {

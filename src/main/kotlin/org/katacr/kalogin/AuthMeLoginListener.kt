@@ -2,6 +2,7 @@ package org.katacr.kalogin
 
 import fr.xephi.authme.api.v3.AuthMeApi
 import fr.xephi.authme.events.LoginEvent
+import fr.xephi.authme.events.RestoreSessionEvent
 import io.papermc.paper.registry.data.dialog.ActionButton
 import io.papermc.paper.registry.data.dialog.action.DialogAction
 import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
@@ -27,6 +28,9 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     // 跟踪上次重新显示对话框的时间（防抖机制）
     private val lastDialogReshowTimes = mutableMapOf<java.util.UUID, Long>()
 
+    // 跟踪通过 Session 自动登录的玩家（用于区分手动登录和自动登录）
+    private val sessionAutoLoginPlayers = mutableSetOf<java.util.UUID>()
+
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
         val player = event.player
@@ -38,9 +42,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         }
         processingPlayers.add(uuid)
 
-        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
         val authMeApi = AuthMeApi.getInstance()
-
         if (authMeApi == null) {
             plugin.logger.warning("AuthMe API not available for player ${player.name}")
             processingPlayers.remove(uuid)
@@ -49,66 +51,15 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
         // 检查玩家是否已注册
         val isRegistered = authMeApi.isRegistered(player.name)
+        processingPlayers.remove(uuid)
 
         if (isRegistered) {
-            // 玩家已注册，检查是否已登录
-            val isAuthenticated = authMeApi.isAuthenticated(player)
-
-            if (isAuthenticated) {
-                // 已登录，不需要处理
-                processingPlayers.remove(uuid)
-                return
-            }
-
-            // 检查是否可以自动登录（IP 相同且勾选了自动登录）
-            plugin.dbManager.canAutoLogin(player.uniqueId, currentIp).thenAccept { canAutoLogin ->
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    processingPlayers.remove(uuid)
-
-                    if (canAutoLogin) {
-                        // 自动登录前再次检查是否已登录
-                        // 延迟 10 tick (0.5秒) 执行，等待 AuthMe Session 处理完成
-                        plugin.server.scheduler.runTaskLater(plugin, Runnable {
-                            val isAuthenticatedAgain = authMeApi.isAuthenticated(player)
-
-                            if (isAuthenticatedAgain) {
-                                // 已经通过其他方式登录（如 Session），不需要自动登录
-                                return@Runnable
-                            }
-
-                            // 自动登录
-                            try {
-                                // 清理防抖记录，防止 LoginEvent 触发时冲突
-                                lastDialogReshowTimes.remove(player.uniqueId)
-
-                                // 先保存登录状态
-                                val wasAuthenticatedBefore = authMeApi.isAuthenticated(player)
-
-                                authMeApi.forceLogin(player)
-
-                                // 检查是否真的登录了
-                                val isAuthenticatedAfter = authMeApi.isAuthenticated(player)
-
-                                if (isAuthenticatedAfter && !wasAuthenticatedBefore) {
-                                    // 成功登录
-                                    player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
-                                }
-                            } catch (e: Exception) {
-                                // 自动登录失败，显示登录对话框
-                                plugin.logger.warning("Auto-login failed for player ${player.name}: ${e.message}")
-                                e.printStackTrace()
-                                showLoginDialog(player)
-                            }
-                        }, 10L)
-                    } else {
-                        // 不能自动登录，显示登录对话框
-                        showLoginDialog(player)
-                    }
-                })
-            }
+            // 已注册：显示登录对话框
+            // 如果玩家已经登录（如 Session 自动登录），LoginEvent 会关闭对话框
+            // 如果玩家未登录，对话框会等待玩家输入密码
+            showLoginDialog(player)
         } else {
-            // 未注册，显示注册对话框
-            processingPlayers.remove(uuid)
+            // 未注册：显示注册对话框
             showRegisterDialog(player)
         }
     }
@@ -116,10 +67,32 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     @EventHandler
     fun onAuthMeLogin(event: LoginEvent) {
         val player = event.player
+        val uuid = player.uniqueId
 
-        // 玩家通过 AuthMe 登录成功，关闭登录界面
+        // 检查是否是通过 Session 自动登录的
+        if (uuid in sessionAutoLoginPlayers) {
+            // 这是通过 Session 自动登录的
+            sessionAutoLoginPlayers.remove(uuid)
+
+            // 触发自动登录事件
+            val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+            KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+
+            // 清理防抖记录
+            lastDialogReshowTimes.remove(uuid)
+
+            // 关闭对话框
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline) {
+                    player.closeInventory()
+                }
+            }, 1L)
+            return
+        }
+
+        // 这是手动登录
         // 清理防抖记录
-        lastDialogReshowTimes.remove(player.uniqueId)
+        lastDialogReshowTimes.remove(uuid)
 
         // 关闭对话框
         plugin.server.scheduler.runTaskLater(plugin, Runnable {
@@ -127,6 +100,17 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 player.closeInventory()
             }
         }, 1L)
+    }
+
+    @EventHandler
+    fun onRestoreSession(event: RestoreSessionEvent) {
+        val player = event.player
+
+        // 标记这个玩家是通过 Session 自动登录的
+        sessionAutoLoginPlayers.add(player.uniqueId)
+
+        // 清理防抖记录
+        lastDialogReshowTimes.remove(player.uniqueId)
     }
 
     @EventHandler

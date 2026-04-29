@@ -12,12 +12,14 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.bukkit.NamespacedKey
+import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import me.clip.placeholderapi.PlaceholderAPI
 import org.bukkit.inventory.ItemStack
 import org.bukkit.Material
+import java.io.File
 
 
 object LoginUI {
@@ -215,10 +217,30 @@ object LoginUI {
 
     /**
      * 从UI配置文件构建DialogBody列表
+     * @param configPath 格式: "ui.xxx.Body" -> 从 plugins/KaLogin/ui/xxx.yml 读取 Body 节点
      */
     private fun buildBodyListFromConfig(player: Player, configPath: String): List<DialogBody> {
-        val config = plugin.config.getConfigurationSection(configPath)
         val bodyList = mutableListOf<DialogBody>()
+        
+        // 解析路径: "ui.login.Body" -> fileName="login", sectionPath="Body"
+        val pathParts = configPath.removePrefix("ui.").split(".", limit = 2)
+        if (pathParts.isEmpty()) return bodyList
+        
+        val fileName = pathParts[0]
+        val sectionPath = if (pathParts.size > 1) pathParts[1] else null
+        
+        // 从 ui 文件夹读取配置
+        val uiFile = File(plugin.dataFolder, "ui/$fileName.yml")
+        if (!uiFile.exists()) return bodyList
+        
+        val uiConfig = YamlConfiguration.loadConfiguration(uiFile)
+        val config = if (sectionPath != null) {
+            uiConfig.getConfigurationSection(sectionPath)
+        } else {
+            uiConfig
+        }
+        
+        if (config == null) return bodyList
 
         if (config == null) return bodyList
 
@@ -326,12 +348,14 @@ object LoginUI {
                 .build()
         )
 
-        // 添加自动登录复选框
-        inputList.add(
-            DialogInput.bool("auto_login_by_ip", plugin.messageManager.getComponent("login.auto-login-checkbox"))
-                .initial(false)
-                .build()
-        )
+        // 添加自动登录复选框（如果配置启用）
+        if (plugin.config.getBoolean("login.show-auto-login-checkbox", true)) {
+            inputList.add(
+                DialogInput.bool("auto_login_by_ip", plugin.messageManager.getComponent("login.auto-login-checkbox"))
+                    .initial(false)
+                    .build()
+            )
+        }
 
         // 构建对话框
         return Dialog.create { builder ->

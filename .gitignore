@@ -122,3 +122,8 @@ runs/
 /KaGuilds/
 /KaMenu/
 /AuthMe-javadoc/
+/KaLoginListenerTest/build.gradle.kts
+/KaLoginListenerTest/gradle.properties
+/KaLoginListenerTest/src/main/kotlin/org/katacr/kaloginlistenertest/KaLoginListenerTest.kt
+/KaLoginListenerTest/src/main/resources/plugin.yml
+/KaLoginListenerTest/README.md

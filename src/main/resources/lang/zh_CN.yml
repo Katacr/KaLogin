@@ -92,6 +92,11 @@ plugin:
   enabled: "&aKaLogin 插件已启用！"
   disabled: "&aKaLogin 插件已禁用！"
 
+# 登出相关
+logout:
+  kick-message: "&6你已登出，下次登录需要重新验证"
+  not-logged-in: "&c你还没有登录！"
+
 # 防作弊相关
 anti-cheat:
   chat-blocked: "&c请在完成注册/登录后再进行聊天"
@@ -113,4 +118,10 @@ authme:
   register-failed: "注册失败，玩家可能已存在"
   player-only: "只有玩家可以使用此命令！"
   fallback-to-builtin: "回退到 KaLogin 内置认证系统"
+
+# 配置更新相关
+config_update:
+  detected_old_version: "检测到旧版本配置文件 (v{old}->v{new})，正在更新..."
+  backup_success: "旧配置已备份到: {path}"
+  update_success: "配置文件更新成功！旧版本: v{old} -> 新版本: v{new}"
 

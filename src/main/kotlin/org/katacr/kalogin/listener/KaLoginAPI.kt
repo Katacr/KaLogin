@@ -2,6 +2,7 @@ package org.katacr.kalogin.listener
 
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
+import org.bukkit.plugin.Plugin
 
 /**
  * KaLogin API 主类
@@ -49,7 +50,6 @@ class KaLoginAPI private constructor() {
             }
             return instance
         }
-
     }
 
     /**
@@ -57,6 +57,68 @@ class KaLoginAPI private constructor() {
      */
     fun setEnabled(enabled: Boolean) {
         isPluginEnabled = enabled
+    }
+
+    /**
+     * 检查 KaLogin 插件是否已启用
+     * @return true 如果 KaLogin 已启用
+     */
+    fun isEnabled(): Boolean = isPluginEnabled
+
+    /**
+     * 注册事件监听器
+     * @param plugin 注册监听器的插件
+     * @param listener 事件监听器实例
+     */
+    fun registerListener(plugin: Plugin, listener: KaLoginListener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener)
+            plugin.logger.info("已注册 KaLogin 事件监听器: ${listener.javaClass.simpleName}")
+        }
+    }
+
+    /**
+     * 注销事件监听器
+     * @param plugin 注销监听器的插件
+     * @param listener 事件监听器实例
+     */
+    fun unregisterListener(plugin: Plugin, listener: KaLoginListener) {
+        if (listeners.remove(listener)) {
+            plugin.logger.info("已注销 KaLogin 事件监听器: ${listener.javaClass.simpleName}")
+        }
+    }
+
+    /**
+     * 获取所有已注册的监听器数量
+     * @return 监听器数量
+     */
+    fun getListenerCount(): Int = listeners.size
+
+    /**
+     * 检查玩家是否已登录
+     * @param playerName 玩家名称
+     * @return true 如果玩家已登录
+     */
+    fun isPlayerLoggedIn(playerName: String): Boolean {
+        val player = Bukkit.getPlayer(playerName) ?: return false
+        return isPlayerLoggedIn(player)
+    }
+
+    /**
+     * 检查玩家是否已登录
+     * @param player 玩家对象
+     * @return true 如果玩家已登录
+     */
+    fun isPlayerLoggedIn(player: Player): Boolean {
+        val plugin = Bukkit.getPluginManager().getPlugin("KaLogin") ?: return false
+        if (plugin is org.katacr.kalogin.KaLogin) {
+            return if (plugin.authMeManager.useAuthMe) {
+                plugin.authMeManager.isAuthenticated(player)
+            } else {
+                plugin.loginListener.isLoggedIn(player.uniqueId)
+            }
+        }
+        return false
     }
 
     /**
@@ -68,7 +130,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerLoginSuccess(player: Player, ip: String, isAutoLogin: Boolean) {
         if (!isPluginEnabled) return
         val event = PlayerLoginSuccessEvent(player, ip, isAutoLogin)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerLoginSuccess(event) }
     }
 
@@ -80,7 +141,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerLoginFailed(player: Player, remainingAttempts: Int) {
         if (!isPluginEnabled) return
         val event = PlayerLoginFailedEvent(player, remainingAttempts)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerLoginFailed(event) }
     }
 
@@ -92,7 +152,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerAutoLogin(player: Player, ip: String) {
         if (!isPluginEnabled) return
         val event = PlayerAutoLoginEvent(player, ip)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerAutoLogin(event) }
     }
 
@@ -104,7 +163,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerRegisterSuccess(player: Player, ip: String) {
         if (!isPluginEnabled) return
         val event = PlayerRegisterSuccessEvent(player, ip)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerRegisterSuccess(event) }
     }
 
@@ -116,7 +174,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerRegisterFailed(player: Player, reason: String) {
         if (!isPluginEnabled) return
         val event = PlayerRegisterFailedEvent(player, reason)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerRegisterFailed(event) }
     }
 
@@ -127,7 +184,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerChangePasswordSuccess(player: Player) {
         if (!isPluginEnabled) return
         val event = PlayerChangePasswordSuccessEvent(player)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerChangePasswordSuccess(event) }
     }
 
@@ -139,7 +195,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerChangePasswordFailed(player: Player, reason: String) {
         if (!isPluginEnabled) return
         val event = PlayerChangePasswordFailedEvent(player, reason)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerChangePasswordFailed(event) }
     }
 
@@ -150,8 +205,36 @@ class KaLoginAPI private constructor() {
     fun callPlayerLogout(player: Player) {
         if (!isPluginEnabled) return
         val event = PlayerLogoutEvent(player)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerLogout(event) }
+    }
+
+    /**
+     * 执行玩家登出
+     * 包括：触发事件、关闭自动登录、踢出玩家
+     *
+     * @param player 登出的玩家
+     * @param kickMessage 可选的踢出消息，如果为 null 则使用默认消息
+     */
+    fun logout(player: Player, kickMessage: net.kyori.adventure.text.Component? = null) {
+        if (!isPluginEnabled) return
+
+        val plugin = Bukkit.getPluginManager().getPlugin("KaLogin") as? org.katacr.kalogin.KaLogin ?: return
+
+        // 1. 触发登出事件
+        val event = PlayerLogoutEvent(player)
+        listeners.forEach { it.onPlayerLogout(event) }
+
+        // 2. 关闭同IP自动登录
+        plugin.dbManager.updateAutoLoginByIp(player.uniqueId, false)
+
+        // 3. 如果使用 AuthMe，触发 AuthMe 登出
+        if (plugin.authMeManager.useAuthMe) {
+            plugin.authMeManager.forceLogout(player)
+        }
+
+        // 4. 踢出玩家
+        val message = kickMessage ?: plugin.messageManager.getComponent("logout.kick-message")
+        player.kick(message)
     }
 
     /**
@@ -161,7 +244,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerUnregister(player: Player) {
         if (!isPluginEnabled) return
         val event = PlayerUnregisterEvent(player)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerUnregister(event) }
     }
 
@@ -172,7 +254,6 @@ class KaLoginAPI private constructor() {
     fun callPlayerAdminUnregister(playerName: String) {
         if (!isPluginEnabled) return
         val event = PlayerAdminUnregisterEvent(playerName)
-        Bukkit.getPluginManager().callEvent(event)
         listeners.forEach { it.onPlayerAdminUnregister(event) }
     }
 
