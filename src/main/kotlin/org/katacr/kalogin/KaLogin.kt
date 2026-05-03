@@ -76,6 +76,8 @@ class KaLogin : JavaPlugin() {
         } else {
             // 如果配置文件不存在，创建默认配置
             saveDefaultConfig()
+            // 首次加载时必须调用 reloadConfig() 将配置加载到内存
+            reloadConfig()
         }
 
         // 加载UI配置文件

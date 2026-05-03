@@ -242,8 +242,6 @@ object LoginUI {
         
         if (config == null) return bodyList
 
-        if (config == null) return bodyList
-
         config.getKeys(false).forEach { key ->
             val section = config.getConfigurationSection(key) ?: return@forEach
             val type = section.getString("type", "message")
@@ -260,44 +258,47 @@ object LoginUI {
                 "item" -> {
                     val material = section.getString("material", "apple")
                     val name = section.getString("name", "")
-                    val description = section.getString("description", "")
+                    val lore = section.getStringList("lore")
+                    // 支持 description 为字符串或列表
+                    val descriptionList: List<String> = when {
+                        section.isList("description") -> section.getStringList("description")
+                        section.getString("description")?.isNotEmpty() == true -> listOf(section.getString("description")!!)
+                        else -> emptyList()
+                    }
                     val itemModel = section.getString("item_model", "")
 
                     try {
                         val bukkitMaterial = material?.let { Material.valueOf(it.uppercase()) }
                         val itemStack = bukkitMaterial?.let { ItemStack(it) }
 
-                        // 设置 item_model
-                        if (itemModel?.isNotEmpty() == true && itemStack != null) {
-                            try {
-                                val namespacedKey = NamespacedKey.fromString(itemModel)
-                                if (namespacedKey != null) {
-                                    itemStack.editMeta { meta ->
+                        // 设置 name、lore 和 item_model 到 ItemStack 上
+                        itemStack?.editMeta { meta ->
+                            // 设置物品名称
+                            if (name?.isNotEmpty() == true) {
+                                meta.displayName(parseText(name, player))
+                            }
+                            // 设置物品 Lore
+                            if (lore.isNotEmpty()) {
+                                meta.lore(lore.map { parseText(it, player) })
+                            }
+                            // 设置 item_model
+                            if (itemModel?.isNotEmpty() == true) {
+                                try {
+                                    val namespacedKey = NamespacedKey.fromString(itemModel)
+                                    if (namespacedKey != null) {
                                         meta.itemModel = namespacedKey
                                     }
+                                } catch (e: IllegalArgumentException) {
+                                    plugin.logger.warning("Invalid item_model: $itemModel")
                                 }
-                            } catch (e: IllegalArgumentException) {
-                                plugin.logger.warning("Invalid item_model: $itemModel")
                             }
                         }
 
-                        val descriptionText = if (name?.isNotEmpty() == true && description?.isNotEmpty() == true) {
-                            "$name\n$description"
-                        } else name?.let {
-                            if (it.isNotEmpty()) {
-                                name
-                            } else {
-                                description
-                            }
-                        }
-
-                        val descriptionBody = descriptionText?.let {
-                            if (it.isNotEmpty()) {
-                                DialogBody.plainMessage(parseText(descriptionText, player))
-                            } else {
-                                null
-                            }
-                        }
+                        // description 作为 DialogBody.item 的额外描述文本（可选）
+                        val descriptionBody = if (descriptionList.isNotEmpty()) {
+                            val descriptionText = descriptionList.joinToString("\n")
+                            DialogBody.plainMessage(parseText(descriptionText, player))
+                        } else null
 
                         val itemBody = itemStack?.let { DialogBody.item(it) }
                             ?.description(descriptionBody)

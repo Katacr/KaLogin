@@ -7,7 +7,11 @@ import java.util.regex.Pattern
  */
 class PasswordValidator(private val config: KaLogin) {
 
-    private val settings = config.config.getConfigurationSection("settings")!!
+    /**
+     * 获取 settings 配置节点（每次调用时动态获取，确保重载后生效）
+     */
+    private val settings: org.bukkit.configuration.ConfigurationSection
+        get() = config.config.getConfigurationSection("settings")!!
 
     /**
      * 验证密码并返回错误信息，验证成功返回 null
@@ -40,28 +44,28 @@ class PasswordValidator(private val config: KaLogin) {
         }
 
         // 检查大写字母
-        if (settings.getBoolean("has-uppercase", true)) {
+        if (settings.getBoolean("has-uppercase", false)) {
             if (!password.any { it.isUpperCase() }) {
                 return config.messageManager.getMessage("password-validation.missing-uppercase")
             }
         }
 
         // 检查小写字母
-        if (settings.getBoolean("has-lowercase", true)) {
+        if (settings.getBoolean("has-lowercase", false)) {
             if (!password.any { it.isLowerCase() }) {
                 return config.messageManager.getMessage("password-validation.missing-lowercase")
             }
         }
 
         // 检查数字
-        if (settings.getBoolean("has-number", true)) {
+        if (settings.getBoolean("has-number", false)) {
             if (!password.any { it.isDigit() }) {
                 return config.messageManager.getMessage("password-validation.missing-number")
             }
         }
 
         // 检查特殊符号
-        if (settings.getBoolean("has-symbol", true)) {
+        if (settings.getBoolean("has-symbol", false)) {
             if (!password.any { !it.isLetterOrDigit() }) {
                 return config.messageManager.getMessage("password-validation.missing-symbol")
             }

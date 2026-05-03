@@ -60,6 +60,11 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (success) {
                     plugin.messageManager.sendMessage(sender, "command.delete.success", "player" to playerName)
+                    // 如果玩家在线，踢出玩家
+                    val onlinePlayer = Bukkit.getPlayerExact(playerName)
+                    if (onlinePlayer != null && onlinePlayer.isOnline) {
+                        onlinePlayer.kick(plugin.messageManager.getComponent("command.delete.kicked"))
+                    }
                 } else {
                     plugin.messageManager.sendMessage(sender, "command.delete.failed")
                 }

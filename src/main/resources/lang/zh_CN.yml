@@ -11,6 +11,7 @@ command:
     player-not-found: "&c找不到玩家: {player}"
     success: "&a已成功删除玩家 &e{player} &a的数据"
     failed: "&c删除失败，该玩家可能没有注册数据"
+    kicked: "&c你的账号已被管理员删除，请重新注册"
   register:
     usage: "&c用法: /kl register <玩家名> <密码>"
     validation-failed: "&c密码验证失败: {error}"
