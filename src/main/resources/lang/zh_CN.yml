@@ -92,6 +92,9 @@ password-validation:
 plugin:
   enabled: "&aKaLogin 插件已启用！"
   disabled: "&aKaLogin 插件已禁用！"
+  update-available: "&e[KaLogin] &f检测到新版本 &a{latest}&f，当前: &7{current}  &a[MineBBS] &8| &b[SpigotMC]"
+  update-minebbs-hover: "&7点击打开 MineBBS 页面"
+  update-spigotmc-hover: "&7点击打开 SpigotMC 页面"
 
 # 登出相关
 logout:

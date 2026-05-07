@@ -3,6 +3,9 @@ package org.katacr.kalogin
 import net.byteflux.libby.BukkitLibraryManager
 import net.byteflux.libby.Library
 import org.bukkit.configuration.file.YamlConfiguration
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.plugin.java.JavaPlugin
 import org.katacr.kalogin.listener.KaLoginAPI
 import java.io.File
@@ -115,6 +118,14 @@ class KaLogin : JavaPlugin() {
         // 注册指令
         registerCommands()
 
+        // 异步检查更新
+        if (config.getBoolean("check-update", true)) {
+            UpdateChecker.check(this)
+        }
+
+        // 注册更新提醒监听器（OP 玩家加入时提示新版本）
+        server.pluginManager.registerEvents(UpdateNotifyListener(), this)
+
         logger.info(messageManager.getMessage("plugin.enabled"))
     }
 
@@ -169,5 +180,15 @@ class KaLogin : JavaPlugin() {
         api?.setEnabled(false)
 
         logger.info(messageManager.getMessage("plugin.disabled"))
+    }
+
+    /**
+     * 更新提醒监听器 — OP 玩家加入时提示新版本
+     */
+    private class UpdateNotifyListener : Listener {
+        @EventHandler
+        fun onPlayerJoin(event: PlayerJoinEvent) {
+            UpdateChecker.notifyIfUpdateAvailable(event.player)
+        }
     }
 }

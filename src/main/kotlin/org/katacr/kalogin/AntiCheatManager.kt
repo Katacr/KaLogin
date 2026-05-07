@@ -162,10 +162,11 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (!isAuthenticating(player)) return@Runnable
 
-                // 根据 use-AuthMe 配置决定调用哪个监听器的方法
+                // 根据 AuthMe 是否真正启用来决定调用哪个监听器的方法
+                // 使用 authMeManager.useAuthMe 而非直接读配置，因为配置可能启用但 AuthMe 未安装
                 when (dialogType) {
                     "login" -> {
-                        if (plugin.config.getBoolean("use-AuthMe", false)) {
+                        if (plugin.authMeManager.useAuthMe) {
                             // AuthMe 模式下，这里不应该被调用，因为 AuthMeLoginListener 有自己的防抖机制
                             plugin.logger.warning("AntiCheatManager trying to show login dialog in AuthMe mode")
                         } else {
@@ -173,7 +174,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
                         }
                     }
                     "register" -> {
-                        if (plugin.config.getBoolean("use-AuthMe", false)) {
+                        if (plugin.authMeManager.useAuthMe) {
                             // AuthMe 模式下，这里不应该被调用，因为 AuthMeLoginListener 有自己的防抖机制
                             plugin.logger.warning("AntiCheatManager trying to show register dialog in AuthMe mode")
                         } else {

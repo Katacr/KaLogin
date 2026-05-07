@@ -1,13 +1,16 @@
 # KaLogin 配置文件
 
 # 配置文件版本（请勿修改）
-config-version: 2
+config-version: 3
 
 # 语言设置: zh_CN (简体中文) 或 en_US (English)
 language: "zh_CN"
 
 # 是否使用 AuthMe 作为登录验证
 use-AuthMe: true
+
+# OP 玩家进入时检查 GitHub 上是否有新版本
+check-update: true
 
 database:
 
@@ -65,6 +68,9 @@ login:
   max-accounts-per-ip: 3
   # 是否显示"同IP自动登录"勾选框（公网环境建议关闭）
   show-auto-login-checkbox: true
+  # 进入服务器后延迟多少 tick 显示登录/注册界面（0 或负数表示不延迟）
+  # 防止其他插件/网络延迟等特殊情况下无法正常弹出登录/注册界面
+  dialog-delay-ticks: 1
 
 # 修改密码设置
 change-password:

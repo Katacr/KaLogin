@@ -54,13 +54,13 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         processingPlayers.remove(uuid)
 
         if (isRegistered) {
-            // 已注册：显示登录对话框
+            // 已注册：延迟显示登录对话框
             // 如果玩家已经登录（如 Session 自动登录），LoginEvent 会关闭对话框
             // 如果玩家未登录，对话框会等待玩家输入密码
-            showLoginDialog(player)
+            showLoginDialogDelayed(player)
         } else {
-            // 未注册：显示注册对话框
-            showRegisterDialog(player)
+            // 未注册：延迟显示注册对话框
+            showRegisterDialogDelayed(player)
         }
     }
 
@@ -348,5 +348,39 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             confirmButton
         )
         player.showDialog(dialog)
+    }
+
+    /**
+     * 根据配置延迟显示登录对话框
+     * 如果 dialog-delay-ticks <= 0，立即显示；否则延迟指定 tick 数
+     */
+    private fun showLoginDialogDelayed(player: Player) {
+        val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
+        if (delayTicks > 0) {
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline) {
+                    showLoginDialog(player)
+                }
+            }, delayTicks)
+        } else {
+            showLoginDialog(player)
+        }
+    }
+
+    /**
+     * 根据配置延迟显示注册对话框
+     * 如果 dialog-delay-ticks <= 0，立即显示；否则延迟指定 tick 数
+     */
+    private fun showRegisterDialogDelayed(player: Player) {
+        val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
+        if (delayTicks > 0) {
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline) {
+                    showRegisterDialog(player)
+                }
+            }, delayTicks)
+        } else {
+            showRegisterDialog(player)
+        }
     }
 }

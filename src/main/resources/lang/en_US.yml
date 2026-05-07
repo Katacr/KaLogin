@@ -92,6 +92,9 @@ password-validation:
 plugin:
   enabled: "&aKaLogin plugin enabled!"
   disabled: "&aKaLogin plugin disabled!"
+  update-available: "&e[KaLogin] &fNew version available: &a{latest}&f, current: &7{current}  &a[MineBBS] &8| &b[SpigotMC]"
+  update-minebbs-hover: "&7Click to open MineBBS page"
+  update-spigotmc-hover: "&7Click to open SpigotMC page"
 
 # Anti-cheat related
 anti-cheat:

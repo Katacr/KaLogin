@@ -4,21 +4,21 @@ package org.katacr.kalogin
 
 import io.papermc.paper.dialog.Dialog
 import io.papermc.paper.registry.data.dialog.ActionButton
+import io.papermc.paper.registry.data.dialog.DialogBase
 import io.papermc.paper.registry.data.dialog.body.DialogBody
 import io.papermc.paper.registry.data.dialog.input.DialogInput
 import io.papermc.paper.registry.data.dialog.type.DialogType
-import io.papermc.paper.registry.data.dialog.DialogBase
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.minimessage.MiniMessage
+import me.clip.placeholderapi.PlaceholderAPI
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.event.HoverEvent
+import net.kyori.adventure.text.minimessage.MiniMessage
+import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
-import net.kyori.adventure.text.event.ClickEvent
-import net.kyori.adventure.text.event.HoverEvent
-import me.clip.placeholderapi.PlaceholderAPI
 import org.bukkit.inventory.ItemStack
-import org.bukkit.Material
 import java.io.File
 
 
@@ -149,13 +149,14 @@ object LoginUI {
     /**
      * 解析可点击文本（hovertext）
      * 格式: <text=显示文字;hover=悬停文字;command=指令;url=链接>
+     * 也支持带单引号格式: <text='显示文字';hover='悬停文字';url='链接'>
      */
-    private fun parseClickableText(text: String, player: Player): Component {
+    fun parseClickableText(text: String, player: Player): Component {
         // 先解析变量
         val resolvedText = resolveVariables(text, player)
 
-        // 查找所有的 <text=...> 标签
-        val regex = Regex("<text=([^;]+)(?:;hover=([^;]+))?(?:;command=([^;]+))?(?:;url=([^;]+))?>")
+        // 查找所有的 <text=...> 标签（支持可选的单引号包裹值）
+        val regex = Regex("<text=['\"]?([^'\";\n]+)['\"]?(?:;hover=['\"]?([^'\";\n]+)['\"]?)?(?:;command=['\"]?([^'\";\n]+)['\"]?)?(?:;url=['\"]?([^'\";\n]+)['\"]?)?>")
         var lastIndex = 0
         val builder = Component.text()
 

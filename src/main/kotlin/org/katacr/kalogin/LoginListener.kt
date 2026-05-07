@@ -60,8 +60,8 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         // 触发自动登录事件
                         KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
                     } else {
-                            // 显示登录对话框
-                            showLoginDialog(player)
+                            // 根据配置延迟显示登录对话框
+                            showLoginDialogDelayed(player)
                         }
                     })
                 }
@@ -74,14 +74,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             if (count >= maxAccountsPerIp) {
                                 player.kick(plugin.messageManager.getComponent("ip-limit.exceeded", "count" to maxAccountsPerIp))
                             } else {
-                                showRegisterDialog(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                                showRegisterDialogDelayed(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
                             }
                         })
                     }
                 } else {
                     // 未启用限制，显示注册对话框
                     plugin.server.scheduler.runTask(plugin, Runnable {
-                        showRegisterDialog(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                        showRegisterDialogDelayed(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
                     })
                 }
             }
@@ -198,6 +198,40 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         player.showDialog(dialog)
     }
 
+    /**
+     * 根据配置延迟显示登录对话框
+     * 如果 dialog-delay-ticks <= 0，立即显示；否则延迟指定 tick 数
+     */
+    private fun showLoginDialogDelayed(player: Player) {
+        val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
+        if (delayTicks > 0) {
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline) {
+                    showLoginDialog(player)
+                }
+            }, delayTicks)
+        } else {
+            showLoginDialog(player)
+        }
+    }
+
+    /**
+     * 根据配置延迟显示注册对话框
+     * 如果 dialog-delay-ticks <= 0，立即显示；否则延迟指定 tick 数
+     */
+    private fun showRegisterDialogDelayed(player: Player, description: String) {
+        val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
+        if (delayTicks > 0) {
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline) {
+                    showRegisterDialog(player, description)
+                }
+            }, delayTicks)
+        } else {
+            showRegisterDialog(player, description)
+        }
+    }
+
 
     /**
      * 显示注册对话框（包含密码和确认密码两个输入框）
@@ -302,6 +336,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         )
         player.showDialog(dialog)
     }
+
 
 
     /**
