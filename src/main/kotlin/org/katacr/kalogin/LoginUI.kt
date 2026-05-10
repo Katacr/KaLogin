@@ -7,6 +7,7 @@ import io.papermc.paper.registry.data.dialog.ActionButton
 import io.papermc.paper.registry.data.dialog.DialogBase
 import io.papermc.paper.registry.data.dialog.body.DialogBody
 import io.papermc.paper.registry.data.dialog.input.DialogInput
+import io.papermc.paper.registry.data.dialog.input.TextDialogInput
 import io.papermc.paper.registry.data.dialog.type.DialogType
 import me.clip.placeholderapi.PlaceholderAPI
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
@@ -144,6 +145,28 @@ object LoginUI {
         }
 
         return result
+    }
+
+    /**
+     * 从配置节构建文本输入框
+     * @param key 输入框标识符
+     * @param label 标签组件
+     * @param section 配置节点（包含 width/height/labelVisible/initial）
+     * @param maxLength 最大输入长度
+     * @return 构建好的 DialogInput
+     */
+    private fun buildTextInput(key: String, label: Component, section: org.bukkit.configuration.ConfigurationSection?, maxLength: Int): DialogInput {
+        val builder = DialogInput.text(key, label)
+            .width(section?.getInt("width", 200) ?: 200)
+            .labelVisible(section?.getBoolean("labelVisible", true) ?: true)
+            .initial(section?.getString("initial", "") ?: "")
+            .maxLength(maxLength)
+        val height = section?.getInt("height", 20) ?: 20
+        return if (height > 0) {
+            builder.multiline(TextDialogInput.MultilineOptions.create(1, height)).build()
+        } else {
+            builder.build()
+        }
     }
 
     /**
@@ -342,19 +365,20 @@ object LoginUI {
         // 添加错误消息
         error?.let { bodyList.add(DialogBody.plainMessage(it)) }
 
+        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
+
         // 添加密码输入框
         inputList.add(
-            DialogInput.text("login_password", plugin.messageManager.getComponent("login.password-input"))
-                .labelVisible(true)
-                .maxLength(64)
-                .build()
+            buildTextInput("login_password", plugin.messageManager.getComponent("login.password-input"),
+                plugin.config.getConfigurationSection("inputs.login.login_password"), maxPwdLength)
         )
 
         // 添加自动登录复选框（如果配置启用）
         if (plugin.config.getBoolean("login.show-auto-login-checkbox", true)) {
+            val autoLoginSection = plugin.config.getConfigurationSection("inputs.login.auto_login_by_ip")
             inputList.add(
                 DialogInput.bool("auto_login_by_ip", plugin.messageManager.getComponent("login.auto-login-checkbox"))
-                    .initial(false)
+                    .initial(autoLoginSection?.getBoolean("initial", false) ?: false)
                     .build()
             )
         }
@@ -395,20 +419,18 @@ object LoginUI {
         // 添加错误消息
         error?.let { bodyList.add(DialogBody.plainMessage(it)) }
 
+        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
+
         // 添加密码输入框
         inputList.add(
-            DialogInput.text("reg_password", plugin.messageManager.getComponent("register.password-input"))
-                .labelVisible(true)
-                .maxLength(64)
-                .build()
+            buildTextInput("reg_password", plugin.messageManager.getComponent("register.password-input"),
+                plugin.config.getConfigurationSection("inputs.register.reg_password"), maxPwdLength)
         )
 
         // 添加确认密码输入框
         inputList.add(
-            DialogInput.text("reg_confirm_password", plugin.messageManager.getComponent("register.confirm-password-input"))
-                .labelVisible(true)
-                .maxLength(64)
-                .build()
+            buildTextInput("reg_confirm_password", plugin.messageManager.getComponent("register.confirm-password-input"),
+                plugin.config.getConfigurationSection("inputs.register.reg_confirm_password"), maxPwdLength)
         )
 
         // 构建对话框
@@ -448,28 +470,24 @@ object LoginUI {
         // 添加错误消息
         error?.let { bodyList.add(DialogBody.plainMessage(it)) }
 
+        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
+
         // 添加旧密码输入框
         inputList.add(
-            DialogInput.text("old_password", plugin.messageManager.getComponent("change-password.old-password-input"))
-                .labelVisible(true)
-                .maxLength(64)
-                .build()
+            buildTextInput("old_password", plugin.messageManager.getComponent("change-password.old-password-input"),
+                plugin.config.getConfigurationSection("inputs.change-password.old_password"), maxPwdLength)
         )
 
         // 添加新密码输入框
         inputList.add(
-            DialogInput.text("new_password", plugin.messageManager.getComponent("change-password.new-password-input"))
-                .labelVisible(true)
-                .maxLength(64)
-                .build()
+            buildTextInput("new_password", plugin.messageManager.getComponent("change-password.new-password-input"),
+                plugin.config.getConfigurationSection("inputs.change-password.new_password"), maxPwdLength)
         )
 
         // 添加确认新密码输入框
         inputList.add(
-            DialogInput.text("confirm_new_password", plugin.messageManager.getComponent("change-password.confirm-new-password-input"))
-                .labelVisible(true)
-                .maxLength(64)
-                .build()
+            buildTextInput("confirm_new_password", plugin.messageManager.getComponent("change-password.confirm-new-password-input"),
+                plugin.config.getConfigurationSection("inputs.change-password.confirm_new_password"), maxPwdLength)
         )
 
         // 构建对话框
