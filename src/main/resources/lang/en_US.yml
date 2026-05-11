@@ -32,6 +32,7 @@ login:
   dialog-title: "Player Login"
   dialog-description: "Please enter your password: (Attempts remaining: {attempts})"
   dialog-button: "Login"
+  recover-entry: "<text=' &b[Forgot password]';hover='Click to open password recovery';command='/recoverpassword'>"
   auto-login-checkbox: "Auto-login with same IP"
   password-input: "Please enter your password:"
 
@@ -95,6 +96,67 @@ plugin:
   update-available: "&e[KaLogin] &fNew version available: &a{latest}&f, current: &7{current}  &a[MineBBS] &8| &b[SpigotMC]"
   update-minebbs-hover: "&7Click to open MineBBS page"
   update-spigotmc-hover: "&7Click to open SpigotMC page"
+
+# Logout related
+logout:
+  kick-message: "&6You have been logged out and will need to verify again next time"
+  not-logged-in: "&cYou are not logged in!"
+
+bind-email:
+  disabled: "&cEmail binding is currently disabled."
+  prompt-message: "&eWe recommend binding an email to improve account security.<text=' &a[Bind Now]';hover='Click to open email binding';command='/bindemail'><text=' &7[Do Not Remind]';hover='Disable future reminders';command='/bindemail dismiss'>"
+  prompt-disabled: "&aEmail binding reminders disabled."
+  description: "&eEnter the email you want to bind, then send a verification code."
+  bound-description: "&aBound email: &e{email}&a. To unbind it, send a verification code to this address first."
+  code-sent-description: "&aA verification code has been sent to &e{email}&a. Enter it below to complete binding."
+  unbind-code-sent-description: "&aAn unbind verification code has been sent to &e{email}&a. Enter it below to complete unbinding."
+  dialog-title: "Bind Email"
+  email-input: "Enter your email:"
+  code-input: "Enter verification code:"
+  send-code-button: "Send Code"
+  send-unbind-code-button: "Send Unbind Code"
+  verify-button: "Verify & Bind"
+  unbind-button: "Verify & Unbind"
+  cancel-button: "Cancel"
+  invalid-email: "&cInvalid email format."
+  smtp-not-configured: "&cSMTP is not configured by the administrator yet."
+  code-sent: "&aVerification code sent to &e{email}&a."
+  send-failed: "&cFailed to send verification code. Please contact the administrator."
+  code-not-sent: "&cPlease enter an email and send the code first."
+  code-expired: "&cThe verification code has expired. Please send a new one."
+  code-invalid: "&cInvalid verification code."
+  bind-success: "&aEmail bound successfully: &e{email}"
+  unbind-code-sent: "&aUnbind verification code sent to &e{email}&a."
+  unbind-success: "&aEmail unbound successfully."
+  save-failed: "&cFailed to save email binding information."
+
+recover-password:
+  no-bound-email: "&cYou have not bound an email, so password recovery is unavailable."
+  already-logged-in: "&cYou are already logged in and cannot use password recovery."
+  description: "&eA verification code will be sent to your bound email &e{email}&e. After verification, you can reset your password."
+  code-sent-description: "&aA verification code has been sent to &e{email}&a. Enter it below and set a new password."
+  dialog-title: "Recover Password"
+  code-input: "Enter verification code:"
+  new-password-input: "Enter new password:"
+  confirm-new-password-input: "Enter new password again:"
+  send-code-button: "Send Code"
+  reset-button: "Verify & Reset"
+  cancel-button: "Cancel"
+  code-sent: "&aVerification code sent to &e{email}&a."
+  send-failed: "&cFailed to send verification code. Please contact the administrator."
+  code-not-sent: "&cPlease send the verification code first."
+  code-expired: "&cThe verification code has expired. Please send a new one."
+  code-invalid: "&cInvalid verification code."
+  new-password-empty: "&cNew password cannot be empty!"
+  new-password-invalid: "&cNew password validation failed: {error}"
+  password-mismatch: "&cThe new passwords do not match."
+  saving: "&eResetting password..."
+  success: "&aPassword reset successful. Please log in with your new password."
+  failed: "&cPassword reset failed. Please try again later."
+
+email-verification:
+  mail-subject: "KaLogin Email Verification Code"
+  mail-body: "Your KaLogin verification code is: {code}. If this was not you, please ignore this email."
 
 # Anti-cheat related
 anti-cheat:

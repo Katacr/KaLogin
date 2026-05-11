@@ -1,7 +1,7 @@
 # KaLogin 配置文件
 
 # 配置文件版本（请勿修改）
-config-version: 4
+config-version: 8
 
 # 语言设置: zh_CN (简体中文) 或 en_US (English)
 language: "zh_CN"
@@ -123,3 +123,59 @@ inputs:
       height: 17              # 设为 -1 则禁用多行模式
       labelVisible: true
       initial: ''
+
+  bind-email:
+    email:
+      width: 240
+      height: 17
+      labelVisible: true
+      initial: ''
+
+    code:
+      width: 160
+      height: 17
+      labelVisible: true
+      initial: ''
+
+  recover-password:
+    code:
+      width: 160
+      height: 17
+      labelVisible: true
+      initial: ''
+
+    new_password:
+      width: 200
+      height: 17
+      labelVisible: true
+      initial: ''
+
+    confirm_new_password:
+      width: 200
+      height: 17
+      labelVisible: true
+      initial: ''
+
+email-binding:
+  enabled: true
+  code-expire-seconds: 300
+  smtp:
+    host: "smtp.qq.com"
+    port: 587
+    auth: true
+    starttls: true
+    ssl: true
+    username: "katacr@qq.com"
+    password: "oroiqpcrzclibefj"
+    from-email: "katacr@qq.com"
+    from-name: "KaLogin"
+
+events:
+  login:
+    - 'console: say 玩家%player_name%已登录!' # 控制台指令
+    - 'wait: 20' # 等待 20 tick 后继续执行后续动作
+    - 'command: spawn' # 玩家指令
+  register:
+    - 'console: say 玩家%player_name%已注册!' # 控制台指令
+    - 'wait: 20' # 等待 20 tick 后继续执行后续动作
+    - 'command: help' # 玩家指令

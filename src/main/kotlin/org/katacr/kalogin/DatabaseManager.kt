@@ -57,6 +57,8 @@ class DatabaseManager(private val plugin: KaLogin) {
                 ip VARCHAR(45),
                 last_login_ip VARCHAR(45),
                 auto_login_by_ip BOOLEAN DEFAULT FALSE,
+                email VARCHAR(255),
+                show_bind_email_prompt BOOLEAN DEFAULT TRUE,
                 reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """.trimIndent()
@@ -67,6 +69,8 @@ class DatabaseManager(private val plugin: KaLogin) {
         addColumnIfNotExists("last_login_ip", "VARCHAR(45)")
         // 检查并添加 auto_login_by_ip 字段（用于数据库升级）
         addColumnIfNotExists("auto_login_by_ip", "BOOLEAN DEFAULT FALSE")
+        addColumnIfNotExists("email", "VARCHAR(255)")
+        addColumnIfNotExists("show_bind_email_prompt", "BOOLEAN DEFAULT TRUE")
     }
 
     /**
@@ -90,7 +94,7 @@ class DatabaseManager(private val plugin: KaLogin) {
         } catch (e: SQLException) {
             // MySQL 或其他数据库，直接尝试添加字段
             try {
-                val alterSql = "ALTER TABLE kalogin_users ADD COLUMN last_login_ip VARCHAR(45)"
+                val alterSql = "ALTER TABLE kalogin_users ADD COLUMN $columnName $columnType"
                 connection?.createStatement()?.execute(alterSql)
             } catch (e2: SQLException) {
                 // 字段已存在，忽略错误
@@ -112,7 +116,7 @@ class DatabaseManager(private val plugin: KaLogin) {
     fun registerPlayer(uuid: UUID, username: String, password: String, ip: String): CompletableFuture<Boolean> {
         return CompletableFuture.supplyAsync({
             val hashedPassword = PasswordHasher.hash(password)
-            val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip, auto_login_by_ip) VALUES (?, ?, ?, ?, ?, FALSE)"
+            val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip, auto_login_by_ip, show_bind_email_prompt) VALUES (?, ?, ?, ?, ?, FALSE, TRUE)"
 
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -158,7 +162,7 @@ class DatabaseManager(private val plugin: KaLogin) {
      */
     fun initPlayerForAuthMe(uuid: UUID, username: String, ip: String): CompletableFuture<Boolean> {
         return CompletableFuture.supplyAsync({
-            val sql = "INSERT INTO kalogin_users (uuid, username, last_login_ip, auto_login_by_ip) VALUES (?, ?, ?, FALSE)"
+            val sql = "INSERT INTO kalogin_users (uuid, username, last_login_ip, auto_login_by_ip, show_bind_email_prompt) VALUES (?, ?, ?, FALSE, TRUE)"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setString(1, uuid.toString())
@@ -268,6 +272,93 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate()
                     true
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    fun getPlayerEmail(uuid: UUID): CompletableFuture<String?> {
+        return CompletableFuture.supplyAsync({
+            val sql = "SELECT email FROM kalogin_users WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery()?.use { rs ->
+                        if (rs.next()) rs.getString("email") else null
+                    }
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                null
+            }
+        })
+    }
+
+    fun shouldShowBindEmailPrompt(uuid: UUID): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "SELECT email, show_bind_email_prompt FROM kalogin_users WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery()?.use { rs ->
+                        if (rs.next()) {
+                            val email = rs.getString("email")
+                            val showPrompt = rs.getBoolean("show_bind_email_prompt")
+                            email.isNullOrBlank() && showPrompt
+                        } else {
+                            false
+                        }
+                    }
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    fun updateBindEmailPrompt(uuid: UUID, enabled: Boolean): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "UPDATE kalogin_users SET show_bind_email_prompt = ? WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setBoolean(1, enabled)
+                    ps.setString(2, uuid.toString())
+                    ps.executeUpdate() > 0
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    fun bindEmail(uuid: UUID, email: String): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "UPDATE kalogin_users SET email = ?, show_bind_email_prompt = FALSE WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, email)
+                    ps.setString(2, uuid.toString())
+                    ps.executeUpdate() > 0
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    fun unbindEmail(uuid: UUID): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "UPDATE kalogin_users SET email = NULL WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeUpdate() > 0
                 }
             } catch (e: SQLException) {
                 e.printStackTrace()

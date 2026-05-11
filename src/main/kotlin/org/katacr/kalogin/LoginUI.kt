@@ -503,4 +503,118 @@ object LoginUI {
                 .type(DialogType.confirmation(confirmButton, cancelButton))
         }
     }
+
+    fun buildBindEmailDialog(
+        player: Player,
+        title: Component,
+        description: Component?,
+        error: Component?,
+        confirmButton: ActionButton,
+        cancelButton: ActionButton,
+        showEmailInput: Boolean = true,
+        showCodeInput: Boolean = false
+    ): Dialog {
+        val bodyList = mutableListOf<DialogBody>()
+        val inputList = mutableListOf<DialogInput>()
+
+        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
+        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
+
+        val emailSection = plugin.config.getConfigurationSection("inputs.bind-email.email")
+        val codeSection = plugin.config.getConfigurationSection("inputs.bind-email.code")
+
+        if (showEmailInput) {
+            inputList.add(
+                buildTextInput(
+                    "bind_email",
+                    plugin.messageManager.getComponent("bind-email.email-input"),
+                    emailSection,
+                    255
+                )
+            )
+        }
+
+        if (showCodeInput) {
+            inputList.add(
+                buildTextInput(
+                    "bind_code",
+                    plugin.messageManager.getComponent("bind-email.code-input"),
+                    codeSection,
+                    16
+                )
+            )
+        }
+
+        return Dialog.create { builder ->
+            builder.empty()
+                .base(
+                    DialogBase.builder(title)
+                        .body(bodyList)
+                        .inputs(inputList)
+                        .canCloseWithEscape(true)
+                        .build()
+                )
+                .type(DialogType.confirmation(confirmButton, cancelButton))
+        }
+    }
+
+    fun buildRecoverPasswordDialog(
+        player: Player,
+        title: Component,
+        description: Component?,
+        error: Component?,
+        confirmButton: ActionButton,
+        cancelButton: ActionButton,
+        requireCode: Boolean = false
+    ): Dialog {
+        val bodyList = mutableListOf<DialogBody>()
+        val inputList = mutableListOf<DialogInput>()
+
+        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
+        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
+
+        val codeSection = plugin.config.getConfigurationSection("inputs.recover-password.code")
+        val newPasswordSection = plugin.config.getConfigurationSection("inputs.recover-password.new_password")
+        val confirmNewPasswordSection = plugin.config.getConfigurationSection("inputs.recover-password.confirm_new_password")
+        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
+
+        if (requireCode) {
+            inputList.add(
+                buildTextInput(
+                    "recover_code",
+                    plugin.messageManager.getComponent("recover-password.code-input"),
+                    codeSection,
+                    16
+                )
+            )
+            inputList.add(
+                buildTextInput(
+                    "recover_new_password",
+                    plugin.messageManager.getComponent("recover-password.new-password-input"),
+                    newPasswordSection,
+                    maxPwdLength
+                )
+            )
+            inputList.add(
+                buildTextInput(
+                    "recover_confirm_new_password",
+                    plugin.messageManager.getComponent("recover-password.confirm-new-password-input"),
+                    confirmNewPasswordSection,
+                    maxPwdLength
+                )
+            )
+        }
+
+        return Dialog.create { builder ->
+            builder.empty()
+                .base(
+                    DialogBase.builder(title)
+                        .body(bodyList)
+                        .inputs(inputList)
+                        .canCloseWithEscape(true)
+                        .build()
+                )
+                .type(DialogType.confirmation(confirmButton, cancelButton))
+        }
+    }
 }

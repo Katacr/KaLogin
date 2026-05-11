@@ -57,6 +57,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
                         // 结束防作弊状态
                         plugin.antiCheatManager.endAuthenticating(player)
+                        plugin.emailBindManager.showPromptIfNeeded(player)
                         // 触发自动登录事件
                         KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
                     } else {
@@ -159,6 +160,10 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 // 结束防作弊状态
                                 plugin.antiCheatManager.endAuthenticating(player)
 
+                                // 执行登录成功动作
+                                plugin.eventActionExecutor.execute(player, "login")
+                                plugin.emailBindManager.showPromptIfNeeded(player)
+
                                 // 触发登录成功事件
                                 KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
                             } else {
@@ -183,19 +188,29 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
-        val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
-            .action(loginAction)
-            .build()
+        plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { email ->
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                if (!player.isOnline) return@Runnable
+                val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+                val description = if (email.isNullOrBlank()) {
+                    null
+                } else {
+                    LoginUI.parseClickableText(plugin.messageManager.getMessage("login.recover-entry"), player)
+                }
+                val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
+                    .action(loginAction)
+                    .build()
 
-        val dialog = LoginUI.buildLoginDialog(
-            player,
-            plugin.messageManager.getComponent("login.dialog-title"),
-            null,  // welcomeMessage已移除，可在UI配置文件中自定义
-            errorComponent,
-            confirmButton
-        )
-        player.showDialog(dialog)
+                val dialog = LoginUI.buildLoginDialog(
+                    player,
+                    plugin.messageManager.getComponent("login.dialog-title"),
+                    description,
+                    errorComponent,
+                    confirmButton
+                )
+                player.showDialog(dialog)
+            })
+        }
     }
 
     /**
@@ -308,6 +323,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             loggedInPlayers[player.uniqueId] = true
                             // 结束防作弊状态
                             plugin.antiCheatManager.endAuthenticating(player)
+                            // 执行注册成功动作
+                            plugin.eventActionExecutor.execute(player, "register")
+                            plugin.emailBindManager.showPromptIfNeeded(player)
                             // 触发注册成功事件
                             val ip = player.address?.address?.hostAddress ?: "127.0.0.1"
                             KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, ip)

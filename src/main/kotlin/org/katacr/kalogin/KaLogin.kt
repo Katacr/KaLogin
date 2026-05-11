@@ -2,7 +2,6 @@ package org.katacr.kalogin
 
 import net.byteflux.libby.BukkitLibraryManager
 import net.byteflux.libby.Library
-import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
@@ -17,6 +16,9 @@ class KaLogin : JavaPlugin() {
     lateinit var antiCheatManager: AntiCheatManager
     lateinit var loginListener: LoginListener
     lateinit var authMeManager: AuthMeManager
+    lateinit var eventActionExecutor: EventActionExecutor
+    lateinit var emailBindManager: EmailBindManager
+    var authMeLoginListener: AuthMeLoginListener? = null
 
     /**
      * 在插件加载时优先处理依赖下载
@@ -55,11 +57,27 @@ class KaLogin : JavaPlugin() {
             .version("3.46.1.0")
             .build()
 
+        // 4. Jakarta Mail
+        val jakartaMail = Library.builder()
+            .groupId("com{}sun{}mail")
+            .artifactId("jakarta.mail")
+            .version("2.0.1")
+            .build()
+
+        // 5. Jakarta Activation
+        val jakartaActivation = Library.builder()
+            .groupId("com{}sun{}activation")
+            .artifactId("jakarta.activation")
+            .version("2.0.1")
+            .build()
+
         logger.info("Checking and downloading necessary dependent libraries, please wait...")
 
         libraryManager.loadLibrary(kotlinStd)
         libraryManager.loadLibrary(jbcrypt)
         libraryManager.loadLibrary(sqlite)
+        libraryManager.loadLibrary(jakartaActivation)
+        libraryManager.loadLibrary(jakartaMail)
     }
 
     override fun onEnable() {
@@ -92,6 +110,12 @@ class KaLogin : JavaPlugin() {
         // 初始化防作弊管理器
         antiCheatManager = AntiCheatManager(this)
 
+        // 初始化事件动作执行器
+        eventActionExecutor = EventActionExecutor(this)
+
+        // 初始化邮箱绑定管理器
+        emailBindManager = EmailBindManager(this)
+
         // 初始化 AuthMe 集成
         authMeManager = AuthMeManager(this)
         authMeManager.init()
@@ -106,13 +130,13 @@ class KaLogin : JavaPlugin() {
 
         // 创建并注册监听器
         loginListener = LoginListener(this)
+        server.pluginManager.registerEvents(antiCheatManager, this)
         if (!authMeManager.useAuthMe) {
             server.pluginManager.registerEvents(loginListener, this)
-            server.pluginManager.registerEvents(antiCheatManager, this)
         } else {
             // AuthMe 模式下注册 AuthMe 登录监听器
-            // AuthMe 会自己处理反作弊，不需要 KaLogin 的 antiCheatManager
-            server.pluginManager.registerEvents(AuthMeLoginListener(this), this)
+            authMeLoginListener = AuthMeLoginListener(this)
+            server.pluginManager.registerEvents(authMeLoginListener!!, this)
         }
 
         // 注册指令
@@ -169,17 +193,45 @@ class KaLogin : JavaPlugin() {
         // 注册登出指令
         val logoutCommand = LogoutCommand(this)
         getCommand("logout")?.setExecutor(logoutCommand)
+
+        // 注册邮箱绑定指令
+        val bindEmailCommand = BindEmailCommand(this)
+        getCommand("bindemail")?.setExecutor(bindEmailCommand)
+
+        val recoverPasswordCommand = RecoverPasswordCommand(this)
+        getCommand("recoverpassword")?.setExecutor(recoverPasswordCommand)
     }
 
     override fun onDisable() {
         dbManager.close()
         antiCheatManager.clearAll()
+        authMeLoginListener = null
 
         // 关闭 KaLogin API
         val api = KaLoginAPI.getInstance()
         api?.setEnabled(false)
 
         logger.info(messageManager.getMessage("plugin.disabled"))
+    }
+
+    fun showLoginDialogForPlayer(player: org.bukkit.entity.Player, errorMessage: String? = null) {
+        if (authMeManager.useAuthMe) {
+            authMeLoginListener?.showLoginDialogFromExternal(player, errorMessage)
+        } else {
+            loginListener.showLoginDialog(player, errorMessage)
+        }
+    }
+
+    fun showRegisterDialogForPlayer(player: org.bukkit.entity.Player, errorMessage: String? = null) {
+        if (authMeManager.useAuthMe) {
+            authMeLoginListener?.showRegisterDialogFromExternal(player, errorMessage)
+        } else {
+            loginListener.showRegisterDialog(
+                player,
+                messageManager.getMessage("register.welcome", "seconds" to 90),
+                errorMessage
+            )
+        }
     }
 
     /**

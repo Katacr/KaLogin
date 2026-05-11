@@ -69,6 +69,10 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         val player = event.player
         val uuid = player.uniqueId
 
+        if (plugin.antiCheatManager.isAuthenticating(player)) {
+            plugin.antiCheatManager.endAuthenticating(player)
+        }
+
         // 检查是否是通过 Session 自动登录的
         if (uuid in sessionAutoLoginPlayers) {
             // 这是通过 Session 自动登录的
@@ -85,6 +89,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             plugin.server.scheduler.runTaskLater(plugin, Runnable {
                 if (player.isOnline) {
                     player.closeInventory()
+                    plugin.emailBindManager.showPromptIfNeeded(player)
                 }
             }, 1L)
             return
@@ -165,6 +170,11 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
      * 显示登录对话框
      */
     private fun showLoginDialog(player: Player, errorMessage: String? = null) {
+        if (!plugin.antiCheatManager.isAuthenticating(player)) {
+            plugin.antiCheatManager.startAuthenticating(player)
+        }
+        plugin.antiCheatManager.setPlayerDialogType(player, "login")
+
         // 防抖机制：2秒内不重复显示对话框
         val now = System.currentTimeMillis()
         val lastReshowTime = lastDialogReshowTimes[player.uniqueId] ?: 0
@@ -208,6 +218,10 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         // 清理防抖记录
                         lastDialogReshowTimes.remove(player.uniqueId)
 
+                        // 执行登录成功动作
+                        plugin.eventActionExecutor.execute(player, "login")
+                        plugin.emailBindManager.showPromptIfNeeded(player)
+
                         // 触发登录成功事件
                         KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
                     } else {
@@ -241,25 +255,48 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
-        val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
-            .action(loginAction)
-            .build()
+        plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { email ->
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                if (!player.isOnline) return@Runnable
+                val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+                val description = if (email.isNullOrBlank()) {
+                    null
+                } else {
+                    LoginUI.parseClickableText(plugin.messageManager.getMessage("login.recover-entry"), player)
+                }
+                val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
+                    .action(loginAction)
+                    .build()
 
-        val dialog = LoginUI.buildLoginDialog(
-            player,
-            plugin.messageManager.getComponent("login.dialog-title"),
-            null,
-            errorComponent,
-            confirmButton
-        )
-        player.showDialog(dialog)
+                val dialog = LoginUI.buildLoginDialog(
+                    player,
+                    plugin.messageManager.getComponent("login.dialog-title"),
+                    description,
+                    errorComponent,
+                    confirmButton
+                )
+                player.showDialog(dialog)
+            })
+        }
+    }
+
+    fun showLoginDialogFromExternal(player: Player, errorMessage: String? = null) {
+        showLoginDialog(player, errorMessage)
+    }
+
+    fun showRegisterDialogFromExternal(player: Player, errorMessage: String? = null) {
+        showRegisterDialog(player, errorMessage)
     }
 
     /**
      * 显示注册对话框
      */
     private fun showRegisterDialog(player: Player, errorMessage: String? = null) {
+        if (!plugin.antiCheatManager.isAuthenticating(player)) {
+            plugin.antiCheatManager.startAuthenticating(player)
+        }
+        plugin.antiCheatManager.setPlayerDialogType(player, "register")
+
         // 防抖机制：2秒内不重复显示对话框
         val now = System.currentTimeMillis()
         val lastReshowTime = lastDialogReshowTimes[player.uniqueId] ?: 0
@@ -299,6 +336,10 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
                         // 清理防抖记录
                         lastDialogReshowTimes.remove(player.uniqueId)
+
+                        // 执行注册成功动作
+                        plugin.eventActionExecutor.execute(player, "register")
+                        plugin.emailBindManager.showPromptIfNeeded(player)
 
                         // 触发注册成功事件
                         KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
