@@ -165,10 +165,10 @@ email-binding:
     auth: true
     starttls: true
     ssl: true
-    username: "katacr@qq.com"
-    password: "oroiqpcrzclibefj"
-    from-email: "katacr@qq.com"
-    from-name: "KaLogin"
+    username: "xxx@qq.com"
+    password: "xxx"
+    from-email: "xxx@qq.com"
+    from-name: "Server"
 
 events:
   login:
