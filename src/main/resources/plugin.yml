@@ -1,5 +1,5 @@
 name: KaLogin
-version: '1.4.0'
+version: '1.4.1'
 main: org.katacr.kalogin.KaLogin
 api-version: '1.21'
 
@@ -10,13 +10,13 @@ softdepend:
 commands:
   kalogin:
     description: KaLogin 主命令
-    usage: /kalogin <delete|register|reload>
+    usage: /kalogin <delete|register|resetterms|reload>
     permission: kalogin.admin
     aliases:
       - kl
   kl:
     description: KaLogin 简写命令
-    usage: /kl <delete|register|reload>
+    usage: /kl <delete|register|resetterms|reload>
     permission: kalogin.admin
   changepassword:
     description: 修改密码

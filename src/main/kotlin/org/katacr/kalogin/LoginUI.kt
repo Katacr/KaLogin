@@ -273,9 +273,15 @@ object LoginUI {
             when (type) {
                 "message" -> {
                     val text = section.getString("text", "")
+                    val width = section.getInt("width", -1)
                     text?.let {
                         if (it.isNotEmpty()) {
-                            text.let { bodyList.add(DialogBody.plainMessage(parseClickableText(it, player))) }
+                            val component = parseClickableText(it, player)
+                            if (width > 0) {
+                                bodyList.add(DialogBody.plainMessage(component, width))
+                            } else {
+                                bodyList.add(DialogBody.plainMessage(component))
+                            }
                         }
                     }
                 }
@@ -289,6 +295,7 @@ object LoginUI {
                         section.getString("description")?.isNotEmpty() == true -> listOf(section.getString("description")!!)
                         else -> emptyList()
                     }
+                    val descriptionWidth = section.getInt("description_width", -1)
                     val itemModel = section.getString("item_model", "")
 
                     try {
@@ -321,7 +328,12 @@ object LoginUI {
                         // description 作为 DialogBody.item 的额外描述文本（可选）
                         val descriptionBody = if (descriptionList.isNotEmpty()) {
                             val descriptionText = descriptionList.joinToString("\n")
-                            DialogBody.plainMessage(parseText(descriptionText, player))
+                            val descriptionComponent = parseText(descriptionText, player)
+                            if (descriptionWidth > 0) {
+                                DialogBody.plainMessage(descriptionComponent, descriptionWidth)
+                            } else {
+                                DialogBody.plainMessage(descriptionComponent)
+                            }
                         } else null
 
                         val itemBody = itemStack?.let { DialogBody.item(it) }
@@ -615,6 +627,38 @@ object LoginUI {
                         .build()
                 )
                 .type(DialogType.confirmation(confirmButton, cancelButton))
+        }
+    }
+
+    fun buildWelcomeDialog(
+        player: Player,
+        title: Component,
+        error: Component?,
+        confirmButton: ActionButton
+    ): Dialog {
+        val bodyList = mutableListOf<DialogBody>()
+        val inputList = mutableListOf<DialogInput>()
+
+        bodyList.addAll(buildBodyListFromConfig(player, "ui.welcome.Body"))
+        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
+
+        val welcomeSection = plugin.config.getConfigurationSection("inputs.welcome.accept_terms")
+        inputList.add(
+            DialogInput.bool("welcome_accept_terms", plugin.messageManager.getComponent("welcome.accept-checkbox"))
+                .initial(welcomeSection?.getBoolean("initial", false) ?: false)
+                .build()
+        )
+
+        return Dialog.create { builder ->
+            builder.empty()
+                .base(
+                    DialogBase.builder(title)
+                        .body(bodyList)
+                        .inputs(inputList)
+                        .canCloseWithEscape(false)
+                        .build()
+                )
+                .type(DialogType.notice(confirmButton))
         }
     }
 }

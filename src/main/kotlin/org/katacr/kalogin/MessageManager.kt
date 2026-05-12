@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.bukkit.ChatColor
+import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
 import java.io.File
@@ -36,6 +37,8 @@ class MessageManager(private val plugin: KaLogin) {
                 plugin.saveResource("lang/$locale.yml", false)
             }
 
+            updateLanguageFileIfNeeded(locale, langFile)
+
             if (langFile.exists()) {
                 val config = YamlConfiguration.loadConfiguration(langFile)
                 languages[locale] = config
@@ -51,6 +54,60 @@ class MessageManager(private val plugin: KaLogin) {
             }
         } catch (e: Exception) {
             plugin.logger.warning("加载语言文件 $locale 失败: ${e.message}")
+        }
+    }
+
+    /**
+     * 检查语言文件是否缺少新节点，若缺少则自动补全。
+     * 保留用户已有的自定义值，仅追加新版本新增的键。
+     */
+    private fun updateLanguageFileIfNeeded(locale: String, langFile: File) {
+        val inputStream = plugin.getResource("lang/$locale.yml") ?: return
+        inputStream.use { stream ->
+            val defaultConfig = YamlConfiguration.loadConfiguration(InputStreamReader(stream))
+
+            if (!langFile.exists()) {
+                return
+            }
+
+            val userConfig = YamlConfiguration.loadConfiguration(langFile)
+            val addedCount = mergeMissingKeys(defaultConfig, userConfig)
+
+            if (addedCount > 0) {
+                userConfig.save(langFile)
+                plugin.logger.info("语言文件 $locale.yml 已自动补全 $addedCount 个新节点")
+            }
+        }
+    }
+
+    /**
+     * 将 defaultConfig 中缺失的键补全到 userConfig 中。
+     * @return 新增的键数量
+     */
+    private fun mergeMissingKeys(defaultConfig: YamlConfiguration, userConfig: YamlConfiguration): Int {
+        var added = 0
+        defaultConfig.getKeys(true).forEach { key ->
+            if (!userConfig.contains(key)) {
+                userConfig.set(key, defaultConfig.get(key))
+                added++
+            }
+        }
+
+        // 额外确保空 section 在用户文件里也会被创建
+        ensureSectionsExist(defaultConfig, userConfig, "")
+        return added
+    }
+
+    private fun ensureSectionsExist(defaultSection: ConfigurationSection, userConfig: YamlConfiguration, path: String) {
+        defaultSection.getKeys(false).forEach { key ->
+            val childPath = if (path.isEmpty()) key else "$path.$key"
+            val defaultChild = defaultSection.getConfigurationSection(key)
+            if (defaultChild != null) {
+                if (!userConfig.isConfigurationSection(childPath) && !userConfig.contains(childPath)) {
+                    userConfig.createSection(childPath)
+                }
+                ensureSectionsExist(defaultChild, userConfig, childPath)
+            }
         }
     }
 

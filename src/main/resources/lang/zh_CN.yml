@@ -6,6 +6,12 @@
 command:
   no-permission: "&c你没有权限使用此命令！"
   unknown-subcommand: "&c未知的子命令！使用 /kl help 查看帮助"
+  reset-terms:
+    usage: "&c用法: /kl resetterms <玩家名|all>"
+    player-not-found: "&c找不到玩家: {player}"
+    success: "&a已重置玩家 &e{player} &a的条款阅读状态"
+    failed: "&c重置玩家 &e{player} &c的条款阅读状态失败"
+    all-success: "&a已重置全部玩家的条款阅读状态，共影响 &e{count} &a条记录"
   delete:
     usage: "&c用法: /kl delete <玩家名>"
     player-not-found: "&c找不到玩家: {player}"
@@ -154,6 +160,13 @@ recover-password:
   success: "&a密码重置成功，请使用新密码登录。"
   failed: "&c密码重置失败，请稍后重试。"
 
+welcome:
+  dialog-title: "服务器欢迎 / 条款确认"
+  accept-checkbox: "我已阅读并了解服务器条款"
+  confirm-button: "确认并继续"
+  must-accept: "&c你需要先阅读并勾选已了解服务器条款，方可继续进行游戏。"
+  save-failed: "&c保存条款阅读状态失败，请稍后重试。"
+
 email-verification:
   mail-subject: "KaLogin 邮箱验证码"
   mail-body: "您的 KaLogin 验证码是：{code}。如非本人操作请忽略此邮件。"
@@ -170,6 +183,7 @@ authme:
   not-found: "未找到 AuthMe 插件"
   command-help-delete: "/kalogin delete <玩家> - 删除玩家数据 (AuthMe)"
   command-help-register: "/kalogin register <玩家> <密码> - 为玩家设置密码 (AuthMe)"
+  command-help-reset-terms: "/kalogin resetterms <玩家|all> - 重置条款阅读状态"
   command-help-reload: "/kalogin reload - 重载配置文件 (KaLogin)"
   unknown-command: "未知命令: {command}"
   delete-usage: "用法: /kalogin delete <玩家>"

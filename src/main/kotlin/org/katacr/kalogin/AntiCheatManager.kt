@@ -40,6 +40,9 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     // 跟踪玩家当前的对话框类型（login 或 register）
     private val playerDialogTypes = ConcurrentHashMap<UUID, String>()
 
+    // 跟踪当前是否已经有认证对话框处于显示状态，避免重复 showDialog
+    private val openedAuthDialogs = ConcurrentHashMap.newKeySet<UUID>()
+
     // 跟踪上次重新显示对话框的时间（防抖机制）
     private val lastDialogReshowTimes = ConcurrentHashMap<UUID, Long>()
 
@@ -55,8 +58,6 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         // 记录认证期间的锁定位置（包括视角）
         lockedLocations[uuid] = player.location.clone()
 
-        // 设置为旁观者模式（从根源阻止破坏性行为）
-        player.gameMode = org.bukkit.GameMode.SPECTATOR
         player.isFlying = false
         player.flySpeed = 0f
         player.walkSpeed = 0f
@@ -109,6 +110,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         authenticatingPlayers.remove(uuid)
         playerDialogTypes.remove(uuid)
         lastDialogReshowTimes.remove(uuid)
+        openedAuthDialogs.remove(uuid)
     }
 
     /**
@@ -146,6 +148,27 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         playerDialogTypes.remove(player.uniqueId)
     }
 
+    /**
+     * 标记认证对话框已显示
+     */
+    fun markDialogOpened(player: Player) {
+        openedAuthDialogs.add(player.uniqueId)
+    }
+
+    /**
+     * 标记认证对话框已关闭
+     */
+    fun markDialogClosed(player: Player) {
+        openedAuthDialogs.remove(player.uniqueId)
+    }
+
+    /**
+     * 对话框当前是否已处于显示状态
+     */
+    fun isDialogOpened(player: Player): Boolean {
+        return openedAuthDialogs.contains(player.uniqueId)
+    }
+
     private fun restoreLockedLocation(player: Player) {
         val locked = lockedLocations[player.uniqueId] ?: return
         val current = player.location
@@ -156,6 +179,8 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
 
     private fun resendDialog(player: Player) {
         val dialogType = getPlayerDialogType(player) ?: return
+        if (isDialogOpened(player)) return
+
         val now = System.currentTimeMillis()
         val lastReshowTime = lastDialogReshowTimes[player.uniqueId] ?: 0
         if (now - lastReshowTime < 1500) return
@@ -166,6 +191,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
             when (dialogType) {
                 "login" -> plugin.showLoginDialogForPlayer(player)
                 "register" -> plugin.showRegisterDialogForPlayer(player)
+                "welcome" -> plugin.showWelcomeDialogForPlayer(player)
             }
         })
     }
@@ -181,7 +207,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     }
 
     /**
-     * 玩家移动事件 - 冻结位置并重新显示对话框
+     * 玩家移动事件：阻止位置移动；若仅发生视角变化则重新打开对话框
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     fun onPlayerMove(event: PlayerMoveEvent) {
@@ -189,17 +215,15 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         if (!isAuthenticating(player)) return
 
         val to = event.to ?: return
-
-        // 同时检测位置移动和视角变化，防止关闭 Dialog 后转头观察环境
-        val hasMoved = event.from.x != event.to.x ||
-                      event.from.y != event.to.y ||
-                      event.from.z != event.to.z
+        val hasMoved = event.from.x != to.x || event.from.y != to.y || event.from.z != to.z
         val hasRotated = event.from.yaw != to.yaw || event.from.pitch != to.pitch
 
         if (!hasMoved && !hasRotated) return
 
         event.to = event.from
-        if (hasMoved || hasRotated) {
+
+        if (hasRotated) {
+            markDialogClosed(player)
             resendDialog(player)
         }
     }
@@ -233,6 +257,8 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         if (!isAllowed) {
             event.isCancelled = true
             plugin.messageManager.sendMessage(player, "anti-cheat.command-blocked")
+            markDialogClosed(player)
+            resendDialog(player)
         }
     }
 
@@ -241,6 +267,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.player
         if (!isAuthenticating(player)) return
         event.isCancelled = true
+        markDialogClosed(player)
         blockAndRestore(player, resendDialog = true)
     }
 
@@ -249,6 +276,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.player
         if (!isAuthenticating(player)) return
         event.isCancelled = true
+        markDialogClosed(player)
         blockAndRestore(player, resendDialog = true)
     }
 
@@ -257,6 +285,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.player
         if (!isAuthenticating(player)) return
         event.isCancelled = true
+        markDialogClosed(player)
         blockAndRestore(player, resendDialog = true)
     }
 
@@ -265,6 +294,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.whoClicked as? Player ?: return
         if (!isAuthenticating(player)) return
         event.isCancelled = true
+        markDialogClosed(player)
         blockAndRestore(player, resendDialog = true)
     }
 
@@ -273,6 +303,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.whoClicked as? Player ?: return
         if (!isAuthenticating(player)) return
         event.isCancelled = true
+        markDialogClosed(player)
         blockAndRestore(player, resendDialog = true)
     }
 
@@ -280,6 +311,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     fun onInventoryClose(event: InventoryCloseEvent) {
         val player = event.player as? Player ?: return
         if (!isAuthenticating(player)) return
+        markDialogClosed(player)
         resendDialog(player)
     }
 
@@ -355,6 +387,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
             return
         }
         event.isCancelled = true
+        markDialogClosed(player)
         blockAndRestore(player, resendDialog = true)
     }
 
@@ -463,6 +496,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
      */
     fun clearAll() {
         authenticatingPlayers.clear()
+        openedAuthDialogs.clear()
         playerGameModes.clear()
         lockedLocations.clear()
         loginTimeoutTasks.clear()

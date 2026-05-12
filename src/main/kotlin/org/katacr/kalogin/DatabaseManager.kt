@@ -59,6 +59,7 @@ class DatabaseManager(private val plugin: KaLogin) {
                 auto_login_by_ip BOOLEAN DEFAULT FALSE,
                 email VARCHAR(255),
                 show_bind_email_prompt BOOLEAN DEFAULT TRUE,
+                accepted_terms BOOLEAN DEFAULT FALSE,
                 reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """.trimIndent()
@@ -71,6 +72,7 @@ class DatabaseManager(private val plugin: KaLogin) {
         addColumnIfNotExists("auto_login_by_ip", "BOOLEAN DEFAULT FALSE")
         addColumnIfNotExists("email", "VARCHAR(255)")
         addColumnIfNotExists("show_bind_email_prompt", "BOOLEAN DEFAULT TRUE")
+        addColumnIfNotExists("accepted_terms", "BOOLEAN DEFAULT FALSE")
     }
 
     /**
@@ -116,7 +118,7 @@ class DatabaseManager(private val plugin: KaLogin) {
     fun registerPlayer(uuid: UUID, username: String, password: String, ip: String): CompletableFuture<Boolean> {
         return CompletableFuture.supplyAsync({
             val hashedPassword = PasswordHasher.hash(password)
-            val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip, auto_login_by_ip, show_bind_email_prompt) VALUES (?, ?, ?, ?, ?, FALSE, TRUE)"
+            val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip, auto_login_by_ip, show_bind_email_prompt, accepted_terms) VALUES (?, ?, ?, ?, ?, FALSE, TRUE, FALSE)"
 
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -162,7 +164,7 @@ class DatabaseManager(private val plugin: KaLogin) {
      */
     fun initPlayerForAuthMe(uuid: UUID, username: String, ip: String): CompletableFuture<Boolean> {
         return CompletableFuture.supplyAsync({
-            val sql = "INSERT INTO kalogin_users (uuid, username, last_login_ip, auto_login_by_ip, show_bind_email_prompt) VALUES (?, ?, ?, FALSE, TRUE)"
+            val sql = "INSERT INTO kalogin_users (uuid, username, last_login_ip, auto_login_by_ip, show_bind_email_prompt, accepted_terms) VALUES (?, ?, ?, FALSE, TRUE, FALSE)"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setString(1, uuid.toString())
@@ -332,6 +334,57 @@ class DatabaseManager(private val plugin: KaLogin) {
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
+            }
+        })
+    }
+
+    fun hasAcceptedTerms(uuid: UUID): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "SELECT accepted_terms FROM kalogin_users WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery()?.use { rs ->
+                        if (rs.next()) rs.getBoolean("accepted_terms") else false
+                    }
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    fun updateAcceptedTerms(uuid: UUID, accepted: Boolean): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync({
+            val sql = "UPDATE kalogin_users SET accepted_terms = ? WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setBoolean(1, accepted)
+                    ps.setString(2, uuid.toString())
+                    ps.executeUpdate() > 0
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        })
+    }
+
+    fun resetAcceptedTerms(uuid: UUID): CompletableFuture<Boolean> {
+        return updateAcceptedTerms(uuid, false)
+    }
+
+    fun resetAcceptedTermsForAll(): CompletableFuture<Int> {
+        return CompletableFuture.supplyAsync({
+            val sql = "UPDATE kalogin_users SET accepted_terms = FALSE"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.executeUpdate()
+                } ?: 0
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                0
             }
         })
     }

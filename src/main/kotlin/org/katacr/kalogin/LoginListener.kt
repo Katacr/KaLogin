@@ -55,11 +55,11 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
                         loggedInPlayers[player.uniqueId] = true
                         plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
-                        // 结束防作弊状态
-                        plugin.antiCheatManager.endAuthenticating(player)
-                        plugin.emailBindManager.showPromptIfNeeded(player)
-                        // 触发自动登录事件
-                        KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                        plugin.welcomeManager.showWelcomeIfNeeded(player) {
+                            plugin.antiCheatManager.endAuthenticating(player)
+                            plugin.emailBindManager.showPromptIfNeeded(player)
+                            KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                        }
                     } else {
                             // 根据配置延迟显示登录对话框
                             showLoginDialogDelayed(player)
@@ -157,15 +157,12 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
                                 // 更新自动登录设置
                                 plugin.dbManager.updateAutoLoginByIp(player.uniqueId, autoLoginCheckbox)
-                                // 结束防作弊状态
-                                plugin.antiCheatManager.endAuthenticating(player)
-
-                                // 执行登录成功动作
-                                plugin.eventActionExecutor.execute(player, "login")
-                                plugin.emailBindManager.showPromptIfNeeded(player)
-
-                                // 触发登录成功事件
-                                KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
+                                plugin.welcomeManager.showWelcomeIfNeeded(player) {
+                                    plugin.antiCheatManager.endAuthenticating(player)
+                                    plugin.eventActionExecutor.execute(player, "login")
+                                    plugin.emailBindManager.showPromptIfNeeded(player)
+                                    KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
+                                }
                             } else {
                             val currentAttempts = (loginAttempts[player.uniqueId] ?: 0) + 1
                             loginAttempts[player.uniqueId] = currentAttempts
@@ -191,6 +188,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { email ->
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (!player.isOnline) return@Runnable
+                plugin.antiCheatManager.markDialogOpened(player)
                 val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
                 val description = if (email.isNullOrBlank()) {
                     null
@@ -321,14 +319,13 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             player.sendMessage(plugin.messageManager.getComponent("register.success"))
                             // 标记玩家为已登录
                             loggedInPlayers[player.uniqueId] = true
-                            // 结束防作弊状态
-                            plugin.antiCheatManager.endAuthenticating(player)
-                            // 执行注册成功动作
-                            plugin.eventActionExecutor.execute(player, "register")
-                            plugin.emailBindManager.showPromptIfNeeded(player)
-                            // 触发注册成功事件
                             val ip = player.address?.address?.hostAddress ?: "127.0.0.1"
-                            KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, ip)
+                            plugin.welcomeManager.showWelcomeIfNeeded(player) {
+                                plugin.antiCheatManager.endAuthenticating(player)
+                                plugin.eventActionExecutor.execute(player, "register")
+                                plugin.emailBindManager.showPromptIfNeeded(player)
+                                KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, ip)
+                            }
                         } else {
                             player.sendMessage(plugin.messageManager.getComponent("register.failed"))
                             // 触发注册失败事件
@@ -352,6 +349,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             errorComponent,
             confirmButton
         )
+        plugin.antiCheatManager.markDialogOpened(player)
         player.showDialog(dialog)
     }
 

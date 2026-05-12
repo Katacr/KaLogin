@@ -221,6 +221,7 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor {
         if (args.isEmpty()) {
             plugin.messageManager.sendMessage(sender, "authme.command-help-delete")
             plugin.messageManager.sendMessage(sender, "authme.command-help-register")
+            plugin.messageManager.sendMessage(sender, "authme.command-help-reset-terms")
             plugin.messageManager.sendMessage(sender, "authme.command-help-reload")
             return true
         }
@@ -230,6 +231,7 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor {
         return when (subCommand) {
             "delete" -> handleDeleteCommand(sender, args)
             "register" -> handleRegisterCommand(sender, args)
+            "resetterms" -> handleResetTermsCommand(sender, args)
             "reload" -> handleReloadCommand(sender)
             else -> {
                 plugin.messageManager.sendMessage(sender, "authme.unknown-command", "command" to subCommand)
@@ -294,6 +296,45 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor {
         plugin.authMeManager.init()
 
         plugin.messageManager.sendMessage(sender, "command.reload.success")
+        return true
+    }
+
+    private fun handleResetTermsCommand(sender: CommandSender, args: Array<String>): Boolean {
+        if (args.size < 2) {
+            plugin.messageManager.sendMessage(sender, "command.reset-terms.usage")
+            return true
+        }
+
+        if (!sender.hasPermission("kalogin.admin")) {
+            plugin.messageManager.sendMessage(sender, "command.no-permission")
+            return true
+        }
+
+        val target = args[1]
+        if (target.equals("all", ignoreCase = true) || target.equals("*", ignoreCase = true)) {
+            plugin.dbManager.resetAcceptedTermsForAll().thenAccept { updated ->
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    plugin.messageManager.sendMessage(sender, "command.reset-terms.all-success", "count" to updated)
+                })
+            }
+            return true
+        }
+
+        val offlinePlayer = org.bukkit.Bukkit.getOfflinePlayer(target)
+        if (!offlinePlayer.hasPlayedBefore() && offlinePlayer.uniqueId.version() == 4) {
+            plugin.messageManager.sendMessage(sender, "command.reset-terms.player-not-found", "player" to target)
+            return true
+        }
+
+        plugin.dbManager.resetAcceptedTerms(offlinePlayer.uniqueId).thenAccept { success ->
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                if (success) {
+                    plugin.messageManager.sendMessage(sender, "command.reset-terms.success", "player" to target)
+                } else {
+                    plugin.messageManager.sendMessage(sender, "command.reset-terms.failed", "player" to target)
+                }
+            })
+        }
         return true
     }
 }

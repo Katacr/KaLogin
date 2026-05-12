@@ -18,6 +18,7 @@ class KaLogin : JavaPlugin() {
     lateinit var authMeManager: AuthMeManager
     lateinit var eventActionExecutor: EventActionExecutor
     lateinit var emailBindManager: EmailBindManager
+    lateinit var welcomeManager: WelcomeManager
     var authMeLoginListener: AuthMeLoginListener? = null
 
     /**
@@ -124,6 +125,9 @@ class KaLogin : JavaPlugin() {
         dbManager = DatabaseManager(this)
         dbManager.init()
 
+        // 初始化欢迎对话框管理器
+        welcomeManager = WelcomeManager(this)
+
         // 初始化 KaLogin API
         val api = KaLoginAPI.getInstance()
         api?.setEnabled(true)
@@ -163,7 +167,7 @@ class KaLogin : JavaPlugin() {
         }
 
         // 释放默认UI配置文件
-        listOf("login", "register", "change-password").forEach { name ->
+        listOf("login", "register", "change-password", "welcome").forEach { name ->
             val uiFile = File(uiFolder, "$name.yml")
             if (!uiFile.exists()) {
                 saveResource("ui/$name.yml", false)
@@ -232,6 +236,10 @@ class KaLogin : JavaPlugin() {
                 errorMessage
             )
         }
+    }
+
+    fun showWelcomeDialogForPlayer(player: org.bukkit.entity.Player, errorMessage: String? = null, onAccepted: (() -> Unit)? = null) {
+        welcomeManager.showWelcomeDialog(player, errorMessage, onAccepted)
     }
 
     /**

@@ -31,6 +31,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         when (args[0].lowercase()) {
             "delete" -> handleDelete(sender, args)
             "register" -> handleRegister(sender, args)
+            "resetterms" -> handleResetTerms(sender, args)
             "reload" -> handleReload(sender)
             else -> {
                 plugin.messageManager.sendMessage(sender, "command.unknown-subcommand")
@@ -112,6 +113,42 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         plugin.messageManager.sendMessage(sender, "command.reload.success")
     }
 
+    /**
+     * 重置玩家已阅读条款状态
+     */
+    private fun handleResetTerms(sender: CommandSender, args: Array<String>) {
+        if (args.size < 2) {
+            plugin.messageManager.sendMessage(sender, "command.reset-terms.usage")
+            return
+        }
+
+        val target = args[1]
+        if (target.equals("all", ignoreCase = true) || target.equals("*", ignoreCase = true)) {
+            plugin.dbManager.resetAcceptedTermsForAll().thenAccept { updated ->
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    plugin.messageManager.sendMessage(sender, "command.reset-terms.all-success", "count" to updated)
+                })
+            }
+            return
+        }
+
+        val offlinePlayer = Bukkit.getOfflinePlayer(target)
+        if (!offlinePlayer.hasPlayedBefore() && offlinePlayer.uniqueId.version() == 4) {
+            plugin.messageManager.sendMessage(sender, "command.reset-terms.player-not-found", "player" to target)
+            return
+        }
+
+        plugin.dbManager.resetAcceptedTerms(offlinePlayer.uniqueId).thenAccept { success ->
+            plugin.server.scheduler.runTask(plugin, Runnable {
+                if (success) {
+                    plugin.messageManager.sendMessage(sender, "command.reset-terms.success", "player" to target)
+                } else {
+                    plugin.messageManager.sendMessage(sender, "command.reset-terms.failed", "player" to target)
+                }
+            })
+        }
+    }
+
     override fun onTabComplete(
         sender: CommandSender,
         command: Command,
@@ -123,10 +160,10 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         }
 
         return when (args.size) {
-            1 -> listOf("delete", "register", "reload").filter { it.startsWith(args[0], ignoreCase = true) }
+            1 -> listOf("delete", "register", "resetterms", "reload").filter { it.startsWith(args[0], ignoreCase = true) }
             2 -> {
                 when (args[0].lowercase()) {
-                    "delete", "register" -> Bukkit.getOnlinePlayers().map { it.name }
+                    "delete", "register", "resetterms" -> Bukkit.getOnlinePlayers().map { it.name } + listOf("all")
                     else -> emptyList()
                 }
             }

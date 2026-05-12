@@ -1,0 +1,18 @@
+Body:
+
+  welcome:
+    type: 'message'
+    text: |
+      <gradient:gold:yellow>欢迎来到服务器！<reset>
+      在继续游戏前，请先阅读以下说明与服务器条款。
+
+  rules:
+    type: 'message'
+    text: |
+      &7- 请遵守服务器规则
+      &7- 禁止作弊、恶意破坏与骚扰他人
+      &7- 如继续游戏，则视为你已阅读并同意服务器条款
+
+  website:
+    type: 'message'
+    text: '&7点击 <text=&b[官网/规则页面];hover=&7打开规则页面;url=https://example.com> 查看完整规则'

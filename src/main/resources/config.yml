@@ -1,7 +1,7 @@
 # KaLogin 配置文件
 
 # 配置文件版本（请勿修改）
-config-version: 8
+config-version: 9
 
 # 语言设置: zh_CN (简体中文) 或 en_US (English)
 language: "zh_CN"
@@ -76,6 +76,11 @@ login:
 change-password:
   # 旧密码验证最大失败次数，超过后取消修改
   max-attempts: 3
+
+# 欢迎对话框设置
+welcome-dialog:
+  # 是否启用欢迎/服务器条款对话框
+  enabled: true
 
 # 输入框自定义属性
 inputs:
@@ -155,6 +160,10 @@ inputs:
       height: 17
       labelVisible: true
       initial: ''
+
+  welcome:
+    accept_terms:
+      initial: false
 
 email-binding:
   enabled: true

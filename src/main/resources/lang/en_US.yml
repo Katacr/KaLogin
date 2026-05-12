@@ -6,6 +6,12 @@
 command:
   no-permission: "&cYou don't have permission to use this command!"
   unknown-subcommand: "&cUnknown subcommand! Use /kl help for help"
+  reset-terms:
+    usage: "&cUsage: /kl resetterms <player|all>"
+    player-not-found: "&cPlayer not found: {player}"
+    success: "&aReset terms acceptance state for player &e{player}"
+    failed: "&cFailed to reset terms acceptance state for player &e{player}"
+    all-success: "&aReset terms acceptance state for all players, affected &e{count} &arecords"
   delete:
     usage: "&cUsage: /kl delete <player>"
     player-not-found: "&cPlayer not found: {player}"
@@ -154,6 +160,13 @@ recover-password:
   success: "&aPassword reset successful. Please log in with your new password."
   failed: "&cPassword reset failed. Please try again later."
 
+welcome:
+  dialog-title: "Welcome / Terms Confirmation"
+  accept-checkbox: "I have read and understood the server terms"
+  confirm-button: "Confirm and Continue"
+  must-accept: "&cYou must read and accept the server terms before continuing."
+  save-failed: "&cFailed to save your terms confirmation. Please try again later."
+
 email-verification:
   mail-subject: "KaLogin Email Verification Code"
   mail-body: "Your KaLogin verification code is: {code}. If this was not you, please ignore this email."
@@ -170,6 +183,7 @@ authme:
   not-found: "AuthMe plugin not found"
   command-help-delete: "/kalogin delete <player> - Delete player data (AuthMe)"
   command-help-register: "/kalogin register <player> <password> - Set password for player (AuthMe)"
+  command-help-reset-terms: "/kalogin resetterms <player|all> - Reset terms acceptance state"
   command-help-reload: "/kalogin reload - Reload configuration (KaLogin)"
   unknown-command: "Unknown command: {command}"
   delete-usage: "Usage: /kalogin delete <player>"
