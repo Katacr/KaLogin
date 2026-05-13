@@ -297,12 +297,17 @@ object LoginUI {
                     }
                     val descriptionWidth = section.getInt("description_width", -1)
                     val itemModel = section.getString("item_model", "")
+                    val customModelData = if (section.contains("custom_model_data")) {
+                        section.getInt("custom_model_data")
+                    } else {
+                        null
+                    }
 
                     try {
                         val bukkitMaterial = material?.let { Material.valueOf(it.uppercase()) }
                         val itemStack = bukkitMaterial?.let { ItemStack(it) }
 
-                        // 设置 name、lore 和 item_model 到 ItemStack 上
+                        // 设置 name、lore、item_model 和 custom_model_data 到 ItemStack 上
                         itemStack?.editMeta { meta ->
                             // 设置物品名称
                             if (name?.isNotEmpty() == true) {
@@ -322,6 +327,10 @@ object LoginUI {
                                 } catch (e: IllegalArgumentException) {
                                     plugin.logger.warning("Invalid item_model: $itemModel")
                                 }
+                            }
+                            // 设置 custom_model_data
+                            if (customModelData != null) {
+                                meta.setCustomModelData(customModelData)
                             }
                         }
 

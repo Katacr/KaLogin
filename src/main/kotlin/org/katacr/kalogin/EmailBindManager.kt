@@ -142,7 +142,7 @@ class EmailBindManager(private val plugin: KaLogin) {
                     player,
                     plugin.messageManager.getComponent("bind-email.dialog-title"),
                     description,
-                    errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) },
+                    plugin.resolveDialogErrorComponent(player, errorMessage),
                     confirmButton,
                     cancelButton,
                     showEmailInput = !hasBoundEmail && pending == null,
@@ -210,7 +210,7 @@ class EmailBindManager(private val plugin: KaLogin) {
                     player,
                     plugin.messageManager.getComponent("recover-password.dialog-title"),
                     description,
-                    errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) },
+                    plugin.resolveDialogErrorComponent(player, errorMessage),
                     ActionButton.builder(
                         plugin.messageManager.getComponent(
                             if (pending == null) "recover-password.send-code-button" else "recover-password.reset-button"

@@ -191,7 +191,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (!player.isOnline) return@Runnable
                 plugin.antiCheatManager.markDialogOpened(player)
-                val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+                val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
                 val description = if (email.isNullOrBlank()) {
                     null
                 } else {
@@ -341,7 +341,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+        val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
         val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("register.dialog-button"))
             .action(registerAction)
             .build()

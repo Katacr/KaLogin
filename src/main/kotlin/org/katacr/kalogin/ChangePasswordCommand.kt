@@ -212,7 +212,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+        val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
         val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("change-password.dialog-button"))
             .action(changePasswordAction)
             .build()

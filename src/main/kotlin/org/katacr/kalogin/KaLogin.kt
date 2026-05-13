@@ -2,6 +2,7 @@ package org.katacr.kalogin
 
 import net.byteflux.libby.BukkitLibraryManager
 import net.byteflux.libby.Library
+import net.kyori.adventure.text.Component
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
@@ -21,6 +22,12 @@ class KaLogin : JavaPlugin() {
     lateinit var welcomeManager: WelcomeManager
     private var placeholderExpansion: KaLoginPlaceholderExpansion? = null
     var authMeLoginListener: AuthMeLoginListener? = null
+
+    companion object {
+        private const val ERROR_PROMPT_NONE = "none"
+        private const val ERROR_PROMPT_BODY = "body"
+        private const val ERROR_PROMPT_TOAST = "toast"
+    }
 
     /**
      * 在插件加载时优先处理依赖下载
@@ -258,6 +265,54 @@ class KaLogin : JavaPlugin() {
 
     fun showWelcomeDialogForPlayer(player: org.bukkit.entity.Player, errorMessage: String? = null, onAccepted: (() -> Unit)? = null) {
         welcomeManager.showWelcomeDialog(player, errorMessage, onAccepted)
+    }
+
+    fun getErrorPromptType(): String {
+        val rawValue = config.getString("error-prompt-type", ERROR_PROMPT_BODY)
+            ?.lowercase()
+            ?.trim()
+            ?: ERROR_PROMPT_BODY
+
+        return if (rawValue == ERROR_PROMPT_NONE || rawValue == "no" || rawValue == "off") {
+            ERROR_PROMPT_NONE
+        } else if (rawValue == ERROR_PROMPT_TOAST) {
+            ERROR_PROMPT_TOAST
+        } else {
+            ERROR_PROMPT_BODY
+        }
+    }
+
+    fun resolveDialogErrorComponent(player: org.bukkit.entity.Player, errorMessage: String?): Component? {
+        if (errorMessage.isNullOrBlank()) {
+            return null
+        }
+
+        val promptType = getErrorPromptType()
+        return if (promptType == ERROR_PROMPT_NONE) {
+            null
+        } else if (promptType == ERROR_PROMPT_TOAST) {
+            showErrorToast(player, errorMessage)
+            null
+        } else {
+            messageManager.getComponentFromMessage(errorMessage)
+        }
+    }
+
+    private fun showErrorToast(player: org.bukkit.entity.Player, errorMessage: String) {
+        if (!player.isOnline) {
+            return
+        }
+        eventActionExecutor.sendToast(
+            player,
+            "type=goal;icon=barrier;title=<red>${escapeToastValue(errorMessage)}"
+        )
+    }
+
+    private fun escapeToastValue(value: String): String {
+        return value
+            .replace("\\", "\\\\")
+            .replace(";", "；")
+            .replace("\n", " ")
     }
 
     /**

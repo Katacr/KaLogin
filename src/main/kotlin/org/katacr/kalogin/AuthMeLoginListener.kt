@@ -97,6 +97,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 if (plugin.antiCheatManager.isAuthenticating(player)) {
                     plugin.antiCheatManager.endAuthenticating(player)
                 }
+                plugin.eventActionExecutor.execute(player, "login")
                 KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
                 plugin.server.scheduler.runTaskLater(plugin, Runnable {
                     if (player.isOnline) {
@@ -302,7 +303,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (!player.isOnline) return@Runnable
                 plugin.antiCheatManager.markDialogOpened(player)
-                val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+                val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
                 val description = if (email.isNullOrBlank()) {
                     null
                 } else {
@@ -428,7 +429,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
         )
 
-        val errorComponent = errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) }
+        val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
         val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("register.dialog-button"))
             .action(registerAction)
             .build()

@@ -68,7 +68,7 @@ class WelcomeManager(private val plugin: KaLogin) {
         val dialog = LoginUI.buildWelcomeDialog(
             player,
             plugin.messageManager.getComponent("welcome.dialog-title"),
-            errorMessage?.let { plugin.messageManager.getComponentFromMessage(it) },
+            plugin.resolveDialogErrorComponent(player, errorMessage),
             confirmButton
         )
 
