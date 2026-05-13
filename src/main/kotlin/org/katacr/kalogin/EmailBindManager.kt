@@ -9,6 +9,9 @@ import jakarta.mail.*
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
 import net.kyori.adventure.text.event.ClickCallback
+import org.bukkit.command.Command
+import org.bukkit.command.CommandSender
+import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 import java.time.Duration
 import java.util.*
@@ -442,7 +445,7 @@ class EmailBindManager(private val plugin: KaLogin) {
     }
 }
 
-class BindEmailCommand(private val plugin: KaLogin) : org.bukkit.command.CommandExecutor {
+class BindEmailCommand(private val plugin: KaLogin) : org.bukkit.command.CommandExecutor, TabCompleter {
     override fun onCommand(
         sender: org.bukkit.command.CommandSender,
         command: org.bukkit.command.Command,
@@ -462,9 +465,24 @@ class BindEmailCommand(private val plugin: KaLogin) : org.bukkit.command.Command
         plugin.emailBindManager.openBindDialog(sender)
         return true
     }
+
+    override fun onTabComplete(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<String>
+    ): List<String> {
+        if (!sender.hasPermission("kalogin.bindemail")) {
+            return emptyList()
+        }
+        return when (args.size) {
+            1 -> listOf("dismiss").filter { it.startsWith(args[0], ignoreCase = true) }
+            else -> emptyList()
+        }
+    }
 }
 
-class RecoverPasswordCommand(private val plugin: KaLogin) : org.bukkit.command.CommandExecutor {
+class RecoverPasswordCommand(private val plugin: KaLogin) : org.bukkit.command.CommandExecutor, TabCompleter {
     override fun onCommand(
         sender: org.bukkit.command.CommandSender,
         command: org.bukkit.command.Command,
@@ -489,4 +507,11 @@ class RecoverPasswordCommand(private val plugin: KaLogin) : org.bukkit.command.C
         plugin.emailBindManager.openRecoverPasswordDialog(sender)
         return true
     }
+    override fun onTabComplete(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<String>
+    ): List<String> = emptyList()
+
 }

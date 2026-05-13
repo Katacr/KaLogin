@@ -36,6 +36,14 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     // 跟踪刚完成注册并等待 LoginEvent 收尾的玩家
     private val pendingRegisterPlayers = mutableSetOf<java.util.UUID>()
 
+    private fun runSync(action: () -> Unit) {
+        if (plugin.server.isPrimaryThread) {
+            action()
+        } else {
+            plugin.server.scheduler.runTask(plugin, Runnable { action() })
+        }
+    }
+
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
         val player = event.player
@@ -171,15 +179,17 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     fun onAuthMeUnregister(event: fr.xephi.authme.events.UnregisterByPlayerEvent) {
         val player = event.player
 
-        // 玩家通过 AuthMe 注销注册，显示注册界面
-        // 清理防抖记录，允许立即显示注册对话框
-        lastDialogReshowTimes.remove(player.uniqueId)
+        runSync {
+            // 玩家通过 AuthMe 注销注册，显示注册界面
+            // 清理防抖记录，允许立即显示注册对话框
+            lastDialogReshowTimes.remove(player.uniqueId)
 
-        // 触发注销账户事件
-        KaLoginAPI.getInstance()?.callPlayerUnregister(player)
+            // 触发注销账户事件
+            KaLoginAPI.getInstance()?.callPlayerUnregister(player)
 
-        // 显示注册对话框
-        showRegisterDialog(player)
+            // 显示注册对话框
+            showRegisterDialog(player)
+        }
     }
 
     @EventHandler
@@ -187,16 +197,19 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         val player = event.player
         val playerName = event.playerName
 
-        // 触发管理员注销账户事件
-        KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
+        runSync {
+            // 触发管理员注销账户事件
+            KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
 
-        // 如果玩家在线，显示注册界面
-        if (player != null && player.isOnline) {
-            // 清理防抖记录，允许立即显示注册对话框
-            lastDialogReshowTimes.remove(player.uniqueId)
+            // 如果玩家在线，显示注册界面
+            if (player != null && player.isOnline) {
+                // 清理防抖记录，允许立即显示注册对话框
+                lastDialogReshowTimes.remove(player.uniqueId)
 
-            // 显示注册对话框
-            showRegisterDialog(player)
+                // 管理员删除玩家数据后，直接将在线玩家踢出，避免继续停留在服务器内
+                plugin.antiCheatManager.markProgrammaticClose(player)
+                player.kick(plugin.messageManager.getComponent("command.delete.kicked"))
+            }
         }
     }
 

@@ -11,13 +11,14 @@ import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
+import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 import org.katacr.kalogin.listener.KaLoginAPI
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
-class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
+class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabCompleter {
 
     private val passwordValidator = PasswordValidator(plugin)
     private val changePasswordAttempts = ConcurrentHashMap<String, Int>()
@@ -55,6 +56,13 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor {
         showChangePasswordDialog(player)
         return true
     }
+
+    override fun onTabComplete(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<String>
+    ): List<String> = emptyList()
 
     /**
      * 显示修改密码对话框

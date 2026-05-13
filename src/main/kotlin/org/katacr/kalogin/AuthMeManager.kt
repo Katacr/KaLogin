@@ -4,6 +4,7 @@ import fr.xephi.authme.api.v3.AuthMeApi
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
+import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 
 /**
@@ -194,7 +195,7 @@ class AuthMeManager(private val plugin: KaLogin) {
  * AuthMe 模式下的命令执行器
  * 当使用 AuthMe 模式时，某些命令需要由 AuthMe 处理
  */
-class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor {
+class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor, TabCompleter {
 
     override fun onCommand(
         sender: CommandSender,
@@ -336,5 +337,39 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor {
             })
         }
         return true
+    }
+
+    override fun onTabComplete(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<String>
+    ): List<String> {
+        if (!plugin.authMeManager.useAuthMe || !sender.hasPermission("kalogin.admin")) {
+            return emptyList()
+        }
+
+        fun match(input: String, candidates: List<String>): List<String> =
+            candidates.filter { it.startsWith(input, ignoreCase = true) }
+
+        return when (args.size) {
+            1 -> match(args[0], listOf("delete", "register", "resetterms", "reload"))
+            2 -> when (args[0].lowercase()) {
+                "delete", "register" -> {
+                    val names = (plugin.authMeManager.getRegisteredNames().orEmpty() + org.bukkit.Bukkit.getOnlinePlayers().map { it.name })
+                        .distinct()
+                        .sorted()
+                    match(args[1], names)
+                }
+                "resetterms" -> {
+                    val names = (org.bukkit.Bukkit.getOnlinePlayers().map { it.name } + listOf("all"))
+                        .distinct()
+                        .sorted()
+                    match(args[1], names)
+                }
+                else -> emptyList()
+            }
+            else -> emptyList()
+        }
     }
 }

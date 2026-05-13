@@ -192,24 +192,34 @@ class KaLogin : JavaPlugin() {
 
         // 注册主指令 kalogin
         getCommand("kalogin")?.setExecutor(commandExecutor)
+        if (commandExecutor is org.bukkit.command.TabCompleter) {
+            getCommand("kalogin")?.tabCompleter = commandExecutor
+        }
 
         // 注册别名 kl
         getCommand("kl")?.setExecutor(commandExecutor)
+        if (commandExecutor is org.bukkit.command.TabCompleter) {
+            getCommand("kl")?.tabCompleter = commandExecutor
+        }
 
         // 注册修改密码指令
         val changePasswordCommand = ChangePasswordCommand(this)
         getCommand("changepassword")?.setExecutor(changePasswordCommand)
+        getCommand("changepassword")?.tabCompleter = changePasswordCommand
 
         // 注册登出指令
         val logoutCommand = LogoutCommand(this)
         getCommand("logout")?.setExecutor(logoutCommand)
+        getCommand("logout")?.tabCompleter = logoutCommand
 
         // 注册邮箱绑定指令
         val bindEmailCommand = BindEmailCommand(this)
         getCommand("bindemail")?.setExecutor(bindEmailCommand)
+        getCommand("bindemail")?.tabCompleter = bindEmailCommand
 
         val recoverPasswordCommand = RecoverPasswordCommand(this)
         getCommand("recoverpassword")?.setExecutor(recoverPasswordCommand)
+        getCommand("recoverpassword")?.tabCompleter = recoverPasswordCommand
     }
 
     override fun onDisable() {

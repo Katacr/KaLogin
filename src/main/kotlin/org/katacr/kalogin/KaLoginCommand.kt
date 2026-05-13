@@ -5,8 +5,6 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
-import org.bukkit.entity.Player
-import java.util.*
 
 class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabCompleter {
 
@@ -163,7 +161,10 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
             1 -> listOf("delete", "register", "resetterms", "reload").filter { it.startsWith(args[0], ignoreCase = true) }
             2 -> {
                 when (args[0].lowercase()) {
-                    "delete", "register", "resetterms" -> Bukkit.getOnlinePlayers().map { it.name } + listOf("all")
+                    "delete", "register", "resetterms" ->
+                        (Bukkit.getOnlinePlayers().map { it.name } + listOf("all"))
+                            .distinct()
+                            .filter { it.startsWith(args[1], ignoreCase = true) }
                     else -> emptyList()
                 }
             }
