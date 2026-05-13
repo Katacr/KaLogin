@@ -15,6 +15,9 @@ Paper 1.21.7 及以上
 - 🚫 IP 账号数量限制
 - 🔑 **用户级自动登录设置** - 每个用户独立选择是否同 IP 自动登录
 - 🔒 **修改密码功能** - 支持玩家修改自己的密码
+- 📜 **欢迎/条款确认对话框** - 支持服务器规则展示、勾选确认与阅读状态记录
+- 📧 **邮箱绑定与找回密码** - 支持邮箱绑定、验证码校验、密码找回
+- 🧩 **PlaceholderAPI 变量扩展** - 可读取邮箱、条款状态、登录 IP、注册时间等玩家信息
 - 👁️ 登录/注册期间反作弊机制
 - ⏱️ 登录/注册超时限制
 - 📊 密码强度验证
@@ -53,6 +56,7 @@ KaLogin 支持两种认证模式，可根据服务器需求自由选择：
 - `/kalogin` 或 `/kl` - 主命令
   - `/kl delete <玩家>` - 删除玩家数据
   - `/kl register <玩家> <密码>` - 为玩家设置密码
+  - `/kl resetterms <玩家|all>` - 重置玩家/全部玩家的条款阅读状态
   - `/kl reload` - 重载配置文件
 - `/changepassword` 或 `/cp` - 修改自己的密码
 
@@ -102,6 +106,7 @@ login:
 - `/kalogin` 或 `/kl` - 主命令
   - `/kl delete <玩家>` - 删除玩家数据
   - `/kl register <玩家> <密码>` - 为玩家设置密码
+  - `/kl resetterms <玩家|all>` - 重置条款阅读状态
   - `/kl reload` - 重载配置文件
 - `/changepassword` 或 `/cp` - 修改自己的密码
 
@@ -205,6 +210,27 @@ Body:
     text: '&e密码要求：&f最少6位，最多20位'
 ```
 
+#### welcome.yml - 欢迎/条款界面配置
+
+```yaml
+Body:
+  welcome:
+    type: 'message'
+    text: '<gradient:gold:yellow>&l欢迎来到服务器！<reset>'
+    width: 220
+
+  rules:
+    type: 'message'
+    text: '&7请先阅读服务器条款后再继续游戏。'
+
+  website:
+    type: 'message'
+    text: '&7点击 <text=&b[查看完整条款];hover=&7打开规则页面;url=https://example.com> 阅读完整说明'
+```
+
+- `welcome.yml` 的 `Body` 区域与登录/注册界面一样支持 `message`、`item`、MiniMessage、hovertext、PAPI 变量等。
+- 欢迎界面底部会额外由插件自动追加：**错误提示区域、条款勾选框、确认按钮**，无需手动编写。
+
 ### 注意事项
 
 ⚠️ **欢迎语已移除语言文件**：之前的欢迎语配置（`login.welcome-message` 和 `register.welcome-message`）已从语言文件中移除。现在欢迎语需要在对应的 `ui/login.yml` 或 `ui/register.yml` 的 `Body` 区域中自定义。
@@ -242,6 +268,7 @@ item_key:
   material: 'apple'  # 物品材质
   name: '&a&l物品名称'  # 可选，物品显示名称
   description: '&f物品描述文本'  # 可选，物品描述
+  description_width: 180  # 可选，描述文本宽度（像素）
   item_model: ''  # 可选，自定义物品模型（1.21.7+），格式: namespace:path
   width: 16  # 可选，渲染宽度（像素）
   height: 16  # 可选，渲染高度（像素）
@@ -271,6 +298,15 @@ Body:
     type: 'message'
     text: '&7你的等级: &f%player_level%'
 ```
+
+KaLogin 额外提供以下 PAPI 变量：
+
+- `%kalogin_email_masked%` - 脱敏邮箱，例如 `61****@qq.com`
+- `%kalogin_email_plain%` - 明文邮箱
+- `%kalogin_accepted_terms%` - 是否已阅读条款（`true/false`）
+- `%kalogin_last_login_ip%` - 上次登录 IP
+- `%kalogin_auto_login_by_ip%` - 是否启用同 IP 自动登录（`true/false`）
+- `%kalogin_register_time%` - 注册时间，格式 `yyyy/MM/dd HH:mm:ss`
 
 ## 常见问题
 

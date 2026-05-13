@@ -1,21 +1,17 @@
+@file:Suppress("UnstableApiUsage")
+
 package org.katacr.kalogin
 
 import io.papermc.paper.registry.data.dialog.ActionButton
 import io.papermc.paper.registry.data.dialog.action.DialogAction
 import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
-import jakarta.mail.Authenticator
-import jakarta.mail.Message
-import jakarta.mail.PasswordAuthentication
-import jakarta.mail.Session
-import jakarta.mail.Transport
+import jakarta.mail.*
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
-import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.entity.Player
 import java.time.Duration
-import java.util.Properties
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
 import java.util.regex.Pattern
@@ -88,7 +84,7 @@ class EmailBindManager(private val plugin: KaLogin) {
                     )
                     hasBoundEmail -> plugin.messageManager.getComponent(
                         "bind-email.bound-description",
-                        "email" to maskEmail(boundEmail!!)
+                        "email" to maskEmail(boundEmail)
                     )
                     else -> plugin.messageManager.getComponent("bind-email.description")
                 }
@@ -98,9 +94,9 @@ class EmailBindManager(private val plugin: KaLogin) {
                         val currentPending = pendingCodes[player.uniqueId]?.takeIf {
                             it.type == EmailActionType.BIND || it.type == EmailActionType.UNBIND
                         }
-                        when {
-                            currentPending == null && hasBoundEmail -> sendVerificationCode(player, boundEmail!!, EmailActionType.UNBIND)
-                            currentPending == null -> {
+                        when (currentPending) {
+                            null if hasBoundEmail -> sendVerificationCode(player, boundEmail, EmailActionType.UNBIND)
+                            null -> {
                                 val email = response.getText("bind_email")?.trim().orEmpty()
                                 if (!isValidEmail(email)) {
                                     openBindDialog(player, plugin.messageManager.getMessage("bind-email.invalid-email"))
@@ -118,7 +114,9 @@ class EmailBindManager(private val plugin: KaLogin) {
                 )
 
                 val cancelAction = DialogAction.customClick(
-                    DialogActionCallback { _, _ -> },
+                    { _, _ ->
+                        player.closeInventory()
+                    },
                     ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()
                 )
 
@@ -198,7 +196,8 @@ class EmailBindManager(private val plugin: KaLogin) {
                 )
 
                 val cancelAction = DialogAction.customClick(
-                    DialogActionCallback { _, _ ->
+                    { _, _ ->
+                        player.closeInventory()
                         plugin.showLoginDialogForPlayer(player)
                     },
                     ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()

@@ -43,6 +43,9 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     // 跟踪当前是否已经有认证对话框处于显示状态，避免重复 showDialog
     private val openedAuthDialogs = ConcurrentHashMap.newKeySet<UUID>()
 
+    // 标记由插件主动关闭的对话框，避免触发 InventoryCloseEvent 后被误判为需要重开
+    private val programmaticClosePlayers = ConcurrentHashMap.newKeySet<UUID>()
+
     // 跟踪上次重新显示对话框的时间（防抖机制）
     private val lastDialogReshowTimes = ConcurrentHashMap<UUID, Long>()
 
@@ -142,13 +145,6 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     }
 
     /**
-     * 清除玩家的对话框类型
-     */
-    fun clearPlayerDialogType(player: Player) {
-        playerDialogTypes.remove(player.uniqueId)
-    }
-
-    /**
      * 标记认证对话框已显示
      */
     fun markDialogOpened(player: Player) {
@@ -160,6 +156,10 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
      */
     fun markDialogClosed(player: Player) {
         openedAuthDialogs.remove(player.uniqueId)
+    }
+
+    fun markProgrammaticClose(player: Player) {
+        programmaticClosePlayers.add(player.uniqueId)
     }
 
     /**
@@ -214,7 +214,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val player = event.player
         if (!isAuthenticating(player)) return
 
-        val to = event.to ?: return
+        val to = event.to
         val hasMoved = event.from.x != to.x || event.from.y != to.y || event.from.z != to.z
         val hasRotated = event.from.yaw != to.yaw || event.from.pitch != to.pitch
 
@@ -311,6 +311,10 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     fun onInventoryClose(event: InventoryCloseEvent) {
         val player = event.player as? Player ?: return
         if (!isAuthenticating(player)) return
+        if (programmaticClosePlayers.remove(player.uniqueId)) {
+            markDialogClosed(player)
+            return
+        }
         markDialogClosed(player)
         resendDialog(player)
     }
@@ -497,6 +501,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     fun clearAll() {
         authenticatingPlayers.clear()
         openedAuthDialogs.clear()
+        programmaticClosePlayers.clear()
         playerGameModes.clear()
         lockedLocations.clear()
         loginTimeoutTasks.clear()

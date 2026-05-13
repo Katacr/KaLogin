@@ -79,7 +79,7 @@ object ConfigUpdater {
         }
 
         // 如果版本已是最新但存在废弃节点，记录警告
-        if (configVersion >= CURRENT_CONFIG_VERSION && deprecatedKeys.isNotEmpty()) {
+        if (configVersion >= CURRENT_CONFIG_VERSION) {
             plugin.logger.info("Detected deprecated config nodes: $deprecatedKeys, cleaning up...")
         } else {
             plugin.logger.info(getMessage("config_update.detected_old_version", "old" to configVersion, "new" to CURRENT_CONFIG_VERSION))

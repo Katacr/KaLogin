@@ -19,6 +19,7 @@ class KaLogin : JavaPlugin() {
     lateinit var eventActionExecutor: EventActionExecutor
     lateinit var emailBindManager: EmailBindManager
     lateinit var welcomeManager: WelcomeManager
+    private var placeholderExpansion: KaLoginPlaceholderExpansion? = null
     var authMeLoginListener: AuthMeLoginListener? = null
 
     /**
@@ -128,6 +129,11 @@ class KaLogin : JavaPlugin() {
         // 初始化欢迎对话框管理器
         welcomeManager = WelcomeManager(this)
 
+        if (server.pluginManager.isPluginEnabled("PlaceholderAPI")) {
+            placeholderExpansion = KaLoginPlaceholderExpansion(this)
+            placeholderExpansion?.register()
+        }
+
         // 初始化 KaLogin API
         val api = KaLoginAPI.getInstance()
         api?.setEnabled(true)
@@ -210,6 +216,8 @@ class KaLogin : JavaPlugin() {
         dbManager.close()
         antiCheatManager.clearAll()
         authMeLoginListener = null
+        placeholderExpansion?.unregister()
+        placeholderExpansion = null
 
         // 关闭 KaLogin API
         val api = KaLoginAPI.getInstance()

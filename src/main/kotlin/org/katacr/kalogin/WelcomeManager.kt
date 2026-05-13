@@ -48,6 +48,8 @@ class WelcomeManager(private val plugin: KaLogin) {
                     plugin.server.scheduler.runTask(plugin, Runnable {
                         if (!player.isOnline) return@Runnable
                         if (success) {
+                            plugin.antiCheatManager.markProgrammaticClose(player)
+                            player.closeInventory()
                             pendingCallbacks.remove(player.uniqueId)
                             callback()
                         } else {

@@ -92,6 +92,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
                 plugin.server.scheduler.runTaskLater(plugin, Runnable {
                     if (player.isOnline) {
+                        plugin.antiCheatManager.markProgrammaticClose(player)
                         player.closeInventory()
                         plugin.emailBindManager.showPromptIfNeeded(player)
                     }
@@ -113,6 +114,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
                 plugin.server.scheduler.runTaskLater(plugin, Runnable {
                     if (player.isOnline) {
+                        plugin.antiCheatManager.markProgrammaticClose(player)
                         player.closeInventory()
                     }
                 }, 1L)
@@ -132,6 +134,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
             plugin.server.scheduler.runTaskLater(plugin, Runnable {
                 if (player.isOnline) {
+                    plugin.antiCheatManager.markProgrammaticClose(player)
                     player.closeInventory()
                 }
             }, 1L)
@@ -239,6 +242,8 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     if (authMeApi.checkPassword(player.name, password)) {
                         // 验证成功，强制登录
                         authMeApi.forceLogin(player)
+                        plugin.antiCheatManager.markProgrammaticClose(player)
+                        player.closeInventory()
                         player.sendMessage(plugin.messageManager.getComponent("login.success"))
 
                         // 更新数据库：最后登录 IP 和自动登录设置
@@ -366,6 +371,8 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     if (success) {
                         // 注册成功，强制登录
                         authMeApi.forceLogin(player)
+                    plugin.antiCheatManager.markProgrammaticClose(player)
+                    player.closeInventory()
                         player.sendMessage(plugin.messageManager.getComponent("register.success"))
 
                         // 初始化数据库记录

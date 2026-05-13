@@ -4,10 +4,23 @@ import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
+import java.sql.Timestamp
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 
 class DatabaseManager(private val plugin: KaLogin) {
+
+    data class PlayerInfoSnapshot(
+        val email: String?,
+        val acceptedTerms: Boolean,
+        val lastLoginIp: String?,
+        val autoLoginByIp: Boolean,
+        val regDate: String?
+    )
+
+    private val regDateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
 
     private var connection: Connection? = null
 
@@ -385,6 +398,36 @@ class DatabaseManager(private val plugin: KaLogin) {
             } catch (e: SQLException) {
                 e.printStackTrace()
                 0
+            }
+        })
+    }
+
+    fun getPlayerInfoSnapshot(uuid: UUID): CompletableFuture<PlayerInfoSnapshot?> {
+        return CompletableFuture.supplyAsync({
+            val sql = "SELECT email, accepted_terms, last_login_ip, auto_login_by_ip, reg_date FROM kalogin_users WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
+                    ps.executeQuery()?.use { rs ->
+                        if (rs.next()) {
+                            val timestamp: Timestamp? = rs.getTimestamp("reg_date")
+                            PlayerInfoSnapshot(
+                                email = rs.getString("email"),
+                                acceptedTerms = rs.getBoolean("accepted_terms"),
+                                lastLoginIp = rs.getString("last_login_ip"),
+                                autoLoginByIp = rs.getBoolean("auto_login_by_ip"),
+                                regDate = timestamp?.toInstant()
+                                    ?.atZone(ZoneId.systemDefault())
+                                    ?.format(regDateFormatter)
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                null
             }
         })
     }
