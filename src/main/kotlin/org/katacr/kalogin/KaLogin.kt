@@ -304,7 +304,7 @@ class KaLogin : JavaPlugin() {
         }
         eventActionExecutor.sendToast(
             player,
-            "type=goal;icon=barrier;title=<red>${escapeToastValue(errorMessage)}"
+            "type=goal;icon=barrier;title=${escapeToastValue(errorMessage)}"
         )
     }
 

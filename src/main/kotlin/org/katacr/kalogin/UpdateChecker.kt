@@ -23,6 +23,8 @@ object UpdateChecker {
     private var checkComplete = false
     private var messageManager: MessageManager? = null
     private var logger: java.util.logging.Logger? = null
+    @Volatile
+    private var enabled = true
 
     private val httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))
@@ -33,9 +35,15 @@ object UpdateChecker {
      * 启动异步版本检查
      */
     fun check(plugin: KaLogin) {
+        enabled = plugin.config.getBoolean("check-update", true)
         currentVersion = plugin.description.version
         messageManager = plugin.messageManager
         logger = plugin.logger
+
+        if (!enabled) {
+            resetState(keepManagers = true)
+            return
+        }
 
         // 使用 Bukkit 调度器异步执行
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
@@ -55,8 +63,25 @@ object UpdateChecker {
             } catch (_: Exception) {
                 // 网络不可达，静默忽略
             }
-            checkComplete = true
+            checkComplete = enabled
         })
+    }
+
+    /**
+     * 在 reload 后刷新更新检查状态。
+     * - 当配置关闭检查时，立即清空结果并停止提示
+     * - 当配置重新开启时，立即重新发起一次异步检查
+     */
+    fun refresh(plugin: KaLogin) {
+        val shouldEnable = plugin.config.getBoolean("check-update", true)
+        enabled = shouldEnable
+
+        if (!shouldEnable) {
+            resetState(keepManagers = true)
+            return
+        }
+
+        check(plugin)
     }
 
     /**
@@ -64,7 +89,7 @@ object UpdateChecker {
      * 应在玩家加入事件中调用
      */
     fun notifyIfUpdateAvailable(player: Player) {
-        if (!checkComplete || !player.isOp) return
+        if (!enabled || !checkComplete || !player.isOp) return
         val latest = latestVersion ?: return
         val current = currentVersion ?: return
         if (!isNewer(latest, current)) return
@@ -106,6 +131,16 @@ object UpdateChecker {
             version.split(".").map { it.toInt() }
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun resetState(keepManagers: Boolean = false) {
+        latestVersion = null
+        currentVersion = null
+        checkComplete = false
+        if (!keepManagers) {
+            messageManager = null
+            logger = null
         }
     }
 }

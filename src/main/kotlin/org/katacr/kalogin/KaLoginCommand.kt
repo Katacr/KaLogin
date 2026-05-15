@@ -108,6 +108,8 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
     private fun handleReload(sender: CommandSender) {
         plugin.reloadConfig()
         plugin.messageManager.reload()
+        plugin.authMeManager.init()
+        UpdateChecker.refresh(plugin)
         plugin.messageManager.sendMessage(sender, "command.reload.success")
     }
 
