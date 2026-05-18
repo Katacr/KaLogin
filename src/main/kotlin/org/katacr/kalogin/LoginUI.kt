@@ -404,7 +404,9 @@ object LoginUI {
             )
         }
 
-        // 构建对话框
+        // 构建对话框（基岩版玩家允许关闭，由服务器端控制重开）
+        val closeable = GeyserCompat.isBedrockPlayer(player)
+        val afterAction = if (closeable) DialogBase.DialogAfterAction.CLOSE else DialogBase.DialogAfterAction.NONE
         return Dialog.create { builder ->
             builder.empty()
                 .base(
@@ -412,8 +414,8 @@ object LoginUI {
                         .pause(false)
                         .body(bodyList)
                         .inputs(inputList)
-                        .canCloseWithEscape(false)
-                        .afterAction(DialogBase.DialogAfterAction.NONE)
+                        .canCloseWithEscape(closeable)
+                        .afterAction(afterAction)
                         .build()
                 )
                 .type(DialogType.notice(confirmButton))
@@ -456,7 +458,9 @@ object LoginUI {
                 plugin.config.getConfigurationSection("inputs.register.reg_confirm_password"), maxPwdLength)
         )
 
-        // 构建对话框
+        // 构建对话框（基岩版玩家允许关闭，由服务器端控制重开）
+        val closeable = GeyserCompat.isBedrockPlayer(player)
+        val afterAction = if (closeable) DialogBase.DialogAfterAction.CLOSE else DialogBase.DialogAfterAction.NONE
         return Dialog.create { builder ->
             builder.empty()
                 .base(
@@ -464,8 +468,8 @@ object LoginUI {
                         .pause(false)
                         .body(bodyList)
                         .inputs(inputList)
-                        .canCloseWithEscape(false)
-                        .afterAction(DialogBase.DialogAfterAction.NONE)
+                        .canCloseWithEscape(closeable)
+                        .afterAction(afterAction)
                         .build()
                 )
                 .type(DialogType.notice(confirmButton))
@@ -668,6 +672,9 @@ object LoginUI {
                 .build()
         )
 
+        // 构建对话框（基岩版玩家允许关闭，由服务器端控制重开）
+        val closeable = GeyserCompat.isBedrockPlayer(player)
+        val afterAction = if (closeable) DialogBase.DialogAfterAction.CLOSE else DialogBase.DialogAfterAction.NONE
         return Dialog.create { builder ->
             builder.empty()
                 .base(
@@ -675,8 +682,8 @@ object LoginUI {
                         .pause(false)
                         .body(bodyList)
                         .inputs(inputList)
-                        .canCloseWithEscape(false)
-                        .afterAction(DialogBase.DialogAfterAction.NONE)
+                        .canCloseWithEscape(closeable)
+                        .afterAction(afterAction)
                         .build()
                 )
                 .type(DialogType.notice(confirmButton))

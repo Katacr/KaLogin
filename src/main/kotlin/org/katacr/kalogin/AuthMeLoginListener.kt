@@ -102,7 +102,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 plugin.server.scheduler.runTaskLater(plugin, Runnable {
                     if (player.isOnline) {
                         plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeInventory()
+                        player.closeDialog()
                         plugin.emailBindManager.showPromptIfNeeded(player)
                     }
                 }, 1L)
@@ -124,7 +124,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 plugin.server.scheduler.runTaskLater(plugin, Runnable {
                     if (player.isOnline) {
                         plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeInventory()
+                        player.closeDialog()
                     }
                 }, 1L)
             }
@@ -144,7 +144,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             plugin.server.scheduler.runTaskLater(plugin, Runnable {
                 if (player.isOnline) {
                     plugin.antiCheatManager.markProgrammaticClose(player)
-                    player.closeInventory()
+                    player.closeDialog()
                 }
             }, 1L)
         }
@@ -257,7 +257,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         // 验证成功，强制登录
                         authMeApi.forceLogin(player)
                         plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeInventory()
+                        player.closeDialog()
                         player.sendMessage(plugin.messageManager.getComponent("login.success"))
 
                         // 更新数据库：最后登录 IP 和自动登录设置
@@ -386,7 +386,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         // 注册成功，强制登录
                         authMeApi.forceLogin(player)
                     plugin.antiCheatManager.markProgrammaticClose(player)
-                    player.closeInventory()
+                    player.closeDialog()
                         player.sendMessage(plugin.messageManager.getComponent("register.success"))
 
                         // 初始化数据库记录

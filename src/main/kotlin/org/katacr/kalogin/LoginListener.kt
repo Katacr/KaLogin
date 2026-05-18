@@ -151,7 +151,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
 
                                 plugin.antiCheatManager.markProgrammaticClose(player)
-                                player.closeInventory()
+                                player.closeDialog()
                                 player.sendMessage(plugin.messageManager.getComponent("login.success"))
                                 loggedInPlayers[player.uniqueId] = true
                                 loginAttempts.remove(player.uniqueId)
@@ -319,7 +319,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     plugin.server.scheduler.runTask(plugin, Runnable {
                         if (success) {
                             plugin.antiCheatManager.markProgrammaticClose(player)
-                            player.closeInventory()
+                            player.closeDialog()
                             player.sendMessage(plugin.messageManager.getComponent("register.success"))
                             // 标记玩家为已登录
                             loggedInPlayers[player.uniqueId] = true

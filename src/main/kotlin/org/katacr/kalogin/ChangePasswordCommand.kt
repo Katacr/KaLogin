@@ -176,7 +176,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
                         // AuthMe 模式：使用 AuthMe API
                         plugin.authMeManager.changePassword(player.name, newPassword)
                         plugin.server.scheduler.runTask(plugin, Runnable {
-                            player.closeInventory()
+                            player.closeDialog()
                             player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
                             // 触发修改密码成功事件
                             KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
@@ -186,7 +186,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
                         plugin.dbManager.setPassword(player.uniqueId, newPassword).thenAccept { success: Boolean ->
                             plugin.server.scheduler.runTask(plugin, Runnable {
                                 if (success) {
-                                    player.closeInventory()
+                                    player.closeDialog()
                                     player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
                                     // 触发修改密码成功事件
                                     KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
@@ -206,7 +206,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
         // 取消按钮的动作
         val cancelAction = DialogAction.customClick(
             DialogActionCallback { _, _ ->
-                player.closeInventory()
+                player.closeDialog()
                 // 取消操作，不执行任何操作
             },
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()

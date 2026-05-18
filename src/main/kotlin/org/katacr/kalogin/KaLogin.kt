@@ -3,6 +3,7 @@ package org.katacr.kalogin
 import net.byteflux.libby.BukkitLibraryManager
 import net.byteflux.libby.Library
 import net.kyori.adventure.text.Component
+import org.bukkit.Bukkit
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
@@ -116,6 +117,9 @@ class KaLogin : JavaPlugin() {
         // 初始化UI构建器
         LoginUI.init(this)
 
+        // 初始化 Geyser/Floodgate 兼容层
+        GeyserCompat.init(this)
+
         // 初始化防作弊管理器
         antiCheatManager = AntiCheatManager(this)
 
@@ -227,6 +231,11 @@ class KaLogin : JavaPlugin() {
         val recoverPasswordCommand = RecoverPasswordCommand(this)
         getCommand("recoverpassword")?.setExecutor(recoverPasswordCommand)
         getCommand("recoverpassword")?.tabCompleter = recoverPasswordCommand
+
+        // 注册用户中心指令
+        val userCenterCommand = UserCenterCommand(this)
+        getCommand("usercenter")?.setExecutor(userCenterCommand)
+        getCommand("usercenter")?.tabCompleter = userCenterCommand
     }
 
     override fun onDisable() {

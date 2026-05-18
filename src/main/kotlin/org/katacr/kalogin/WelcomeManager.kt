@@ -49,7 +49,7 @@ class WelcomeManager(private val plugin: KaLogin) {
                         if (!player.isOnline) return@Runnable
                         if (success) {
                             plugin.antiCheatManager.markProgrammaticClose(player)
-                            player.closeInventory()
+                            player.closeDialog()
                             pendingCallbacks.remove(player.uniqueId)
                             callback()
                         } else {

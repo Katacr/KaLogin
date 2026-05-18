@@ -118,7 +118,7 @@ class EmailBindManager(private val plugin: KaLogin) {
 
                 val cancelAction = DialogAction.customClick(
                     { _, _ ->
-                        player.closeInventory()
+                        player.closeDialog()
                     },
                     ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()
                 )
@@ -200,7 +200,7 @@ class EmailBindManager(private val plugin: KaLogin) {
 
                 val cancelAction = DialogAction.customClick(
                     { _, _ ->
-                        player.closeInventory()
+                        player.closeDialog()
                         plugin.showLoginDialogForPlayer(player)
                     },
                     ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()

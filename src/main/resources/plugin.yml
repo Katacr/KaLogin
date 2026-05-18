@@ -1,11 +1,12 @@
 name: KaLogin
-version: '1.4.3'
+version: '1.4.4'
 main: org.katacr.kalogin.KaLogin
 api-version: '1.21'
 
 softdepend:
   - PlaceholderAPI
   - AuthMe
+  - Geyser-Spigot
 
 commands:
   kalogin:
@@ -18,6 +19,7 @@ commands:
     description: KaLogin 简写命令
     usage: /kl <delete|register|resetterms|reload>
     permission: kalogin.admin
+
   changepassword:
     description: 修改密码
     usage: /changepassword
@@ -34,6 +36,11 @@ commands:
     usage: /recoverpassword
     aliases:
       - rp
+  usercenter:
+    description: 打开用户中心
+    usage: /usercenter
+    aliases:
+      - uc
 
 permissions:
   kalogin.admin:
@@ -50,5 +57,8 @@ permissions:
     default: true
   kalogin.recoverpassword:
     description: 允许使用邮箱找回密码命令
+    default: true
+  kalogin.usercenter:
+    description: 允许使用用户中心命令
     default: true
 

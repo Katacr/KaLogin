@@ -6,9 +6,15 @@ plugins {
 }
 
 group = "org.katacr"
-version = "1.4.3"
+version = "1.4.4"
 
 repositories {
+    maven("https://maven.aliyun.com/repository/central") {
+        name = "aliyun-central"
+    }
+    maven("https://maven.aliyun.com/repository/gradle-plugin") {
+        name = "aliyun-gradle-plugin"
+    }
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/") {
         name = "papermc-repo"

@@ -200,3 +200,17 @@ config_update:
   backup_success: "旧配置已备份到: {path}"
   update_success: "配置文件更新成功！旧版本: v{old} -> 新版本: v{new}"
 
+# 用户中心
+user-center:
+  dialog-title: "用户中心"
+  info-username: "&f用户名: &e{username}"
+  info-reg-date: "&f注册时间: &e{date}"
+  info-last-ip: "&f上次登录IP: &e{ip}"
+  info-email: "&f绑定邮箱: &e{email}"
+  info-password: "&f密码: &e********"
+  unknown: "未知"
+  not-bound: "未绑定"
+  button-bind-email: "绑定邮箱"
+  button-rebind-email: "换绑邮箱"
+  button-change-password: "修改密码"
+

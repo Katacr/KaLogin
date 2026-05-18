@@ -160,6 +160,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
 
     fun markProgrammaticClose(player: Player) {
         programmaticClosePlayers.add(player.uniqueId)
+        playerDialogTypes.remove(player.uniqueId)
     }
 
     /**
@@ -207,7 +208,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     }
 
     /**
-     * 玩家移动事件：阻止位置移动；若仅发生视角变化则重新打开对话框
+     * 玩家移动事件：阻止位置移动；若仅发生视角变化且对话框未打开则重新打开对话框
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     fun onPlayerMove(event: PlayerMoveEvent) {
@@ -222,8 +223,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
 
         event.to = event.from
 
-        if (hasRotated) {
-            markDialogClosed(player)
+        if (hasRotated && !isDialogOpened(player)) {
             resendDialog(player)
         }
     }

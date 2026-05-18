@@ -194,3 +194,17 @@ authme:
   player-only: "Only players can use this command!"
   fallback-to-builtin: "Falling back to KaLogin's built-in authentication"
 
+# User Center
+user-center:
+  dialog-title: "User Center"
+  info-username: "&fUsername: &e{username}"
+  info-reg-date: "&fRegistered: &e{date}"
+  info-last-ip: "&fLast Login IP: &e{ip}"
+  info-email: "&fEmail: &e{email}"
+  info-password: "&fPassword: &e********"
+  unknown: "Unknown"
+  not-bound: "Not bound"
+  button-bind-email: "Bind Email"
+  button-rebind-email: "Change Email"
+  button-change-password: "Change Password"
+
