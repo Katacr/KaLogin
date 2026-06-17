@@ -1,5 +1,5 @@
 name: KaLogin
-version: '1.4.4'
+version: '1.4.5'
 main: org.katacr.kalogin.KaLogin
 api-version: '1.21'
 
