@@ -91,6 +91,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         if (uuid in sessionAutoLoginPlayers) {
             // 这是通过 Session 自动登录的
             sessionAutoLoginPlayers.remove(uuid)
+            loginAttempts.remove(uuid)
             val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
             lastDialogReshowTimes.remove(uuid)
             plugin.welcomeManager.showWelcomeIfNeeded(player) {
@@ -112,6 +113,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
         if (uuid in pendingRegisterPlayers) {
             pendingRegisterPlayers.remove(uuid)
+            loginAttempts.remove(uuid)
             val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
             lastDialogReshowTimes.remove(uuid)
             plugin.welcomeManager.showWelcomeIfNeeded(player) {
@@ -133,6 +135,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
         // 这是手动登录
         val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+        loginAttempts.remove(uuid)
         lastDialogReshowTimes.remove(uuid)
         plugin.welcomeManager.showWelcomeIfNeeded(player) {
             if (plugin.antiCheatManager.isAuthenticating(player)) {
@@ -168,6 +171,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         // 玩家通过 AuthMe 登出，显示登录界面
         // 清理防抖记录，允许立即显示登录对话框
         lastDialogReshowTimes.remove(player.uniqueId)
+        loginAttempts.remove(player.uniqueId)
 
         // 触发登出事件
         KaLoginAPI.getInstance()?.callPlayerLogout(player)
@@ -385,14 +389,15 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     if (success) {
                         // 注册成功，强制登录
                         authMeApi.forceLogin(player)
-                    plugin.antiCheatManager.markProgrammaticClose(player)
-                    player.closeDialog()
+                        plugin.antiCheatManager.markProgrammaticClose(player)
+                        player.closeDialog()
                         player.sendMessage(plugin.messageManager.getComponent("register.success"))
 
                         // 初始化数据库记录
                         val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
                         plugin.dbManager.initPlayerForAuthMe(player.uniqueId, player.name, currentIp)
                         pendingRegisterPlayers.add(player.uniqueId)
+                        loginAttempts.remove(player.uniqueId)
 
                         // 清理防抖记录
                         lastDialogReshowTimes.remove(player.uniqueId)

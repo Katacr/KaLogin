@@ -70,19 +70,27 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 // 未注册，检查 IP 注册数量限制
                 val maxAccountsPerIp = plugin.config.getInt("login.max-accounts-per-ip", 0)
                 if (maxAccountsPerIp > 0) {
+                    val registerTimeout = plugin.config.getInt("login.register-timeout", 90)
                     plugin.dbManager.countAccountsByIp(currentIp).thenAccept { count ->
                         plugin.server.scheduler.runTask(plugin, Runnable {
                             if (count >= maxAccountsPerIp) {
                                 player.kick(plugin.messageManager.getComponent("ip-limit.exceeded", "count" to maxAccountsPerIp))
                             } else {
-                                showRegisterDialogDelayed(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                                showRegisterDialogDelayed(
+                                    player,
+                                    plugin.messageManager.getMessage("register.welcome", "seconds" to registerTimeout)
+                                )
                             }
                         })
                     }
                 } else {
                     // 未启用限制，显示注册对话框
+                    val registerTimeout = plugin.config.getInt("login.register-timeout", 90)
                     plugin.server.scheduler.runTask(plugin, Runnable {
-                        showRegisterDialogDelayed(player, plugin.messageManager.getMessage("register.welcome", "seconds" to 90))
+                        showRegisterDialogDelayed(
+                            player,
+                            plugin.messageManager.getMessage("register.welcome", "seconds" to registerTimeout)
+                        )
                     })
                 }
             }

@@ -9,6 +9,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class DatabaseManager(private val plugin: KaLogin) {
 
@@ -23,6 +25,15 @@ class DatabaseManager(private val plugin: KaLogin) {
     private val regDateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
 
     private var connection: Connection? = null
+    private val databaseExecutor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "KaLogin-Database").apply {
+            isDaemon = true
+        }
+    }
+
+    private fun <T> supplyDb(task: () -> T): CompletableFuture<T> {
+        return CompletableFuture.supplyAsync({ task() }, databaseExecutor)
+    }
 
     fun init() {
         val config = plugin.config
@@ -129,7 +140,7 @@ class DatabaseManager(private val plugin: KaLogin) {
     }
     // 在 DatabaseManager.kt 中添加
     fun registerPlayer(uuid: UUID, username: String, password: String, ip: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val hashedPassword = PasswordHasher.hash(password)
             val sql = "INSERT INTO kalogin_users (uuid, username, password, ip, last_login_ip, auto_login_by_ip, show_bind_email_prompt, accepted_terms) VALUES (?, ?, ?, ?, ?, FALSE, TRUE, FALSE)"
 
@@ -142,19 +153,19 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.setString(5, ip) // 初始时 last_login_ip 与注册 IP 相同
                     ps.executeUpdate()
                     true
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 检查玩家是否已注册
      */
     fun isPlayerRegistered(uuid: UUID): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT COUNT(*) FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -163,12 +174,12 @@ class DatabaseManager(private val plugin: KaLogin) {
                         rs.next()
                         rs.getInt(1) > 0
                     }
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
@@ -176,7 +187,7 @@ class DatabaseManager(private val plugin: KaLogin) {
      * 只存储 IP 相关信息，不存储密码
      */
     fun initPlayerForAuthMe(uuid: UUID, username: String, ip: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "INSERT INTO kalogin_users (uuid, username, last_login_ip, auto_login_by_ip, show_bind_email_prompt, accepted_terms) VALUES (?, ?, ?, FALSE, TRUE, FALSE)"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -185,7 +196,7 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.setString(3, ip)
                     ps.executeUpdate()
                     true
-                }
+                } ?: false
             } catch (e: SQLException) {
                 // 可能是唯一键冲突，玩家已存在，尝试更新
                 try {
@@ -195,20 +206,20 @@ class DatabaseManager(private val plugin: KaLogin) {
                         ps.setString(2, ip)
                         ps.setString(3, uuid.toString())
                         ps.executeUpdate() > 0
-                    }
+                    } ?: false
                 } catch (e2: SQLException) {
                     e.printStackTrace()
                     false
                 }
             }
-        })
+        }
     }
 
     /**
      * 检查玩家是否启用同IP自动登录且IP与上次相同
      */
     fun canAutoLogin(uuid: UUID, ip: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT last_login_ip, auto_login_by_ip FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -222,19 +233,19 @@ class DatabaseManager(private val plugin: KaLogin) {
                             false
                         }
                     }
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 检查玩家 IP 是否与上次登录相同
      */
     fun isSameLastIp(uuid: UUID, ip: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT last_login_ip FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -247,19 +258,19 @@ class DatabaseManager(private val plugin: KaLogin) {
                             false
                         }
                     }
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 更新玩家的自动登录设置
      */
     fun updateAutoLoginByIp(uuid: UUID, enabled: Boolean): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET auto_login_by_ip = ? WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -267,19 +278,19 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate()
                     true
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 更新玩家最后登录 IP
      */
     fun updateLastLoginIp(uuid: UUID, ip: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET last_login_ip = ? WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -287,16 +298,16 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate()
                     true
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun getPlayerEmail(uuid: UUID): CompletableFuture<String?> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT email FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -304,16 +315,16 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.executeQuery()?.use { rs ->
                         if (rs.next()) rs.getString("email") else null
                     }
-                }
+                } ?: null
             } catch (e: SQLException) {
                 e.printStackTrace()
                 null
             }
-        })
+        }
     }
 
     fun shouldShowBindEmailPrompt(uuid: UUID): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT email, show_bind_email_prompt FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -327,32 +338,32 @@ class DatabaseManager(private val plugin: KaLogin) {
                             false
                         }
                     }
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun updateBindEmailPrompt(uuid: UUID, enabled: Boolean): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET show_bind_email_prompt = ? WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setBoolean(1, enabled)
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate() > 0
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun hasAcceptedTerms(uuid: UUID): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT accepted_terms FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -360,28 +371,28 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.executeQuery()?.use { rs ->
                         if (rs.next()) rs.getBoolean("accepted_terms") else false
                     }
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun updateAcceptedTerms(uuid: UUID, accepted: Boolean): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET accepted_terms = ? WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setBoolean(1, accepted)
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate() > 0
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun resetAcceptedTerms(uuid: UUID): CompletableFuture<Boolean> {
@@ -389,7 +400,7 @@ class DatabaseManager(private val plugin: KaLogin) {
     }
 
     fun resetAcceptedTermsForAll(): CompletableFuture<Int> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET accepted_terms = FALSE"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -399,11 +410,11 @@ class DatabaseManager(private val plugin: KaLogin) {
                 e.printStackTrace()
                 0
             }
-        })
+        }
     }
 
     fun getPlayerInfoSnapshot(uuid: UUID): CompletableFuture<PlayerInfoSnapshot?> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT email, accepted_terms, last_login_ip, auto_login_by_ip, reg_date FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -424,50 +435,50 @@ class DatabaseManager(private val plugin: KaLogin) {
                             null
                         }
                     }
-                }
+                } ?: null
             } catch (e: SQLException) {
                 e.printStackTrace()
                 null
             }
-        })
+        }
     }
 
     fun bindEmail(uuid: UUID, email: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET email = ?, show_bind_email_prompt = FALSE WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setString(1, email)
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate() > 0
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun unbindEmail(uuid: UUID): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "UPDATE kalogin_users SET email = NULL WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setString(1, uuid.toString())
                     ps.executeUpdate() > 0
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 验证玩家密码
      */
     fun verifyPassword(uuid: UUID, password: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT password FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -480,19 +491,19 @@ class DatabaseManager(private val plugin: KaLogin) {
                             false
                         }
                     }
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 获取指定 IP 的注册账号数量
      */
     fun countAccountsByIp(ip: String): CompletableFuture<Int> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "SELECT COUNT(*) FROM kalogin_users WHERE ip = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
@@ -504,37 +515,37 @@ class DatabaseManager(private val plugin: KaLogin) {
                             0
                         }
                     }
-                }
+                } ?: 0
             } catch (e: SQLException) {
                 e.printStackTrace()
                 0
             }
-        })
+        }
     }
 
     /**
      * 删除玩家数据
      */
     fun deletePlayer(uuid: UUID): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val sql = "DELETE FROM kalogin_users WHERE uuid = ?"
             try {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setString(1, uuid.toString())
                     ps.executeUpdate() > 0
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     /**
      * 重新设置玩家密码
      */
     fun setPassword(uuid: UUID, password: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return supplyDb {
             val hashedPassword = PasswordHasher.hash(password)
             val sql = "UPDATE kalogin_users SET password = ? WHERE uuid = ?"
             try {
@@ -542,15 +553,23 @@ class DatabaseManager(private val plugin: KaLogin) {
                     ps.setString(1, hashedPassword)
                     ps.setString(2, uuid.toString())
                     ps.executeUpdate() > 0
-                }
+                } ?: false
             } catch (e: SQLException) {
                 e.printStackTrace()
                 false
             }
-        })
+        }
     }
 
     fun close() {
+        databaseExecutor.shutdown()
+        try {
+            if (!databaseExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                plugin.logger.warning("数据库任务未能在 5 秒内完成，正在继续关闭连接")
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         connection?.close()
     }
 }
