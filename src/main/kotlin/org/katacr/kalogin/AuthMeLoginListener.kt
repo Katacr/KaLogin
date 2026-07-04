@@ -111,25 +111,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             return
         }
 
-        if (uuid in pendingRegisterPlayers) {
-            pendingRegisterPlayers.remove(uuid)
-            loginAttempts.remove(uuid)
-            val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
-            lastDialogReshowTimes.remove(uuid)
-            plugin.welcomeManager.showWelcomeIfNeeded(player) {
-                if (plugin.antiCheatManager.isAuthenticating(player)) {
-                    plugin.antiCheatManager.endAuthenticating(player)
-                }
-                plugin.eventActionExecutor.execute(player, "register")
-                plugin.emailBindManager.showPromptIfNeeded(player)
-                KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
-                plugin.server.scheduler.runTaskLater(plugin, Runnable {
-                    if (player.isOnline) {
-                        plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeDialog()
-                    }
-                }, 1L)
-            }
+        if (completePendingRegisterLogin(player)) {
             return
         }
 
@@ -335,6 +317,32 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         showLoginDialog(player, errorMessage)
     }
 
+    private fun completePendingRegisterLogin(player: Player): Boolean {
+        val uuid = player.uniqueId
+        if (!pendingRegisterPlayers.remove(uuid)) {
+            return false
+        }
+
+        loginAttempts.remove(uuid)
+        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+        lastDialogReshowTimes.remove(uuid)
+        plugin.welcomeManager.showWelcomeIfNeeded(player) {
+            if (plugin.antiCheatManager.isAuthenticating(player)) {
+                plugin.antiCheatManager.endAuthenticating(player)
+            }
+            plugin.eventActionExecutor.execute(player, "register")
+            plugin.emailBindManager.showPromptIfNeeded(player)
+            KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline) {
+                    plugin.antiCheatManager.markProgrammaticClose(player)
+                    player.closeDialog()
+                }
+            }, 1L)
+        }
+        return true
+    }
+
     fun showLoginDialogFromExternal(player: Player, errorMessage: String? = null) {
         showLoginDialog(player, errorMessage)
     }
@@ -383,52 +391,59 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     return@DialogActionCallback
                 }
 
-                // 使用 AuthMe API 注册
-                try {
-                    val success = authMeApi.registerPlayer(player.name, password)
-                    if (success) {
-                        // 注册成功，强制登录
-                        authMeApi.forceLogin(player)
-                        plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeDialog()
-                        player.sendMessage(plugin.messageManager.getComponent("register.success"))
+                player.sendMessage(plugin.messageManager.getComponent("register.saving"))
+                val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+                plugin.dbManager.initPlayerForAuthMe(player.uniqueId, player.name, currentIp).thenAccept { dbSaved ->
+                    plugin.server.scheduler.runTask(plugin, Runnable {
+                        if (!player.isOnline) return@Runnable
 
-                        // 初始化数据库记录
-                        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
-                        plugin.dbManager.initPlayerForAuthMe(player.uniqueId, player.name, currentIp)
-                        pendingRegisterPlayers.add(player.uniqueId)
-                        loginAttempts.remove(player.uniqueId)
+                        try {
+                            pendingRegisterPlayers.add(player.uniqueId)
+                            loginAttempts.remove(player.uniqueId)
+                            authMeApi.forceRegister(player, password, true)
+                            plugin.antiCheatManager.markProgrammaticClose(player)
+                            player.closeDialog()
+                            player.sendMessage(plugin.messageManager.getComponent("register.success"))
+                            lastDialogReshowTimes.remove(player.uniqueId)
 
-                        // 清理防抖记录
-                        lastDialogReshowTimes.remove(player.uniqueId)
-                    } else {
-                        // 注册失败，重新显示注册界面
-                        // 触发注册失败事件
-                        KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, "Registration failed")
-                        reopenRegisterDialog(player, plugin.messageManager.getMessage("register.failed"))
-                    }
-                } catch (e: Exception) {
-                    // 捕获 AuthMe 注册异常，获取具体错误信息
-                    plugin.logger.warning("AuthMe registration failed for player ${player.name}: ${e.message}")
-                    e.printStackTrace()
+                            if (!dbSaved) {
+                                plugin.logger.warning("AuthMe registration succeeded for ${player.name}, but KaLogin database init failed")
+                            }
 
-                    // 触发注册失败事件
-                    KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, e.message ?: "Unknown error")
+                            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                                if (
+                                    player.isOnline &&
+                                    pendingRegisterPlayers.contains(player.uniqueId) &&
+                                    authMeApi.isAuthenticated(player)
+                                ) {
+                                    completePendingRegisterLogin(player)
+                                }
+                            }, 1L)
+                        } catch (e: Exception) {
+                            pendingRegisterPlayers.remove(player.uniqueId)
+                            // 捕获 AuthMe 注册异常，获取具体错误信息
+                            plugin.logger.warning("AuthMe registration failed for player ${player.name}: ${e.message}")
+                            e.printStackTrace()
 
-                    // 根据异常类型显示不同的错误消息
-                    val errorMessage = when {
-                        e.message?.contains("already registered", ignoreCase = true) == true -> {
-                            plugin.messageManager.getMessage("register.failed")
+                            // 触发注册失败事件
+                            KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, e.message ?: "Unknown error")
+
+                            // 根据异常类型显示不同的错误消息
+                            val errorMessage = when {
+                                e.message?.contains("already registered", ignoreCase = true) == true -> {
+                                    plugin.messageManager.getMessage("register.failed")
+                                }
+                                e.message?.contains("too many accounts", ignoreCase = true) == true -> {
+                                    plugin.messageManager.getMessage("ip-limit.exceeded", "count" to plugin.config.getInt("ip-limit.max-accounts", 3))
+                                }
+                                else -> {
+                                    plugin.messageManager.getMessage("register.failed")
+                                }
+                            }
+
+                            reopenRegisterDialog(player, errorMessage)
                         }
-                        e.message?.contains("too many accounts", ignoreCase = true) == true -> {
-                            plugin.messageManager.getMessage("ip-limit.exceeded", "count" to plugin.config.getInt("ip-limit.max-accounts", 3))
-                        }
-                        else -> {
-                            plugin.messageManager.getMessage("register.failed")
-                        }
-                    }
-
-                    reopenRegisterDialog(player, errorMessage)
+                    })
                 }
             },
             ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
