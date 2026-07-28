@@ -1,0 +1,17 @@
+# Table of contents
+
+* [Home](README.md)
+  * [Getting Started](home/start.md)
+* [Configuration](config/README.md)
+  * [config.yml](config/config.md)
+* [Features](features/README.md)
+  * [Authentication Modes](features/auth-modes.md)
+  * [UI Customization](features/ui.md)
+  * [Email Binding and Password Recovery](features/email.md)
+  * [Welcome and Terms](features/welcome.md)
+  * [Login and Registration Actions](features/actions.md)
+* [Commands and Permissions](perm/README.md)
+  * [Commands](perm/commands.md)
+  * [Permissions](perm/permissions.md)
+* [PlaceholderAPI](PlaceholderAPI.md)
+* [FAQ](faq.md)

@@ -1,0 +1,17 @@
+# Table of contents
+
+* [首页](README.md)
+  * [快速开始](home/start.md)
+* [配置插件](config/README.md)
+  * [配置文件: config.yml](config/config.md)
+* [功能使用](features/README.md)
+  * [认证模式](features/auth-modes.md)
+  * [界面自定义](features/ui.md)
+  * [邮箱绑定与找回密码](features/email.md)
+  * [欢迎和条款确认](features/welcome.md)
+  * [登录/注册后动作](features/actions.md)
+* [命令和权限](perm/README.md)
+  * [命令列表](perm/commands.md)
+  * [权限列表](perm/permissions.md)
+* [PlaceholderAPI](PlaceholderAPI.md)
+* [常见问题](faq.md)
