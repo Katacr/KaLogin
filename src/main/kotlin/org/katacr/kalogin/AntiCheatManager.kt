@@ -32,10 +32,10 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     private val lockedLocations = ConcurrentHashMap<UUID, Location>()
 
     // 跟踪登录超时任务
-    val loginTimeoutTasks = ConcurrentHashMap<UUID, Int>()
+    val loginTimeoutTasks = ConcurrentHashMap<UUID, KaLoginTaskHandle>()
 
     // 跟踪注册超时任务
-    val registerTimeoutTasks = ConcurrentHashMap<UUID, Int>()
+    val registerTimeoutTasks = ConcurrentHashMap<UUID, KaLoginTaskHandle>()
 
     // 跟踪玩家当前的对话框类型（login 或 register）
     private val playerDialogTypes = ConcurrentHashMap<UUID, String>()
@@ -174,7 +174,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         val locked = lockedLocations[player.uniqueId] ?: return
         val current = player.location
         if (current.world != locked.world || current.distanceSquared(locked) > 0.0 || current.yaw != locked.yaw || current.pitch != locked.pitch) {
-            player.teleport(locked)
+            KaLoginScheduler.teleport(player, locked)
         }
     }
 
@@ -187,7 +187,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         if (now - lastReshowTime < 1500) return
 
         lastDialogReshowTimes[player.uniqueId] = now
-        plugin.server.scheduler.runTask(plugin, Runnable {
+        KaLoginScheduler.runPlayer(player, Runnable {
             if (!isAuthenticating(player) || !player.isOnline) return@Runnable
             when (dialogType) {
                 "login" -> plugin.showLoginDialogForPlayer(player)
@@ -476,13 +476,13 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
 
         // 取消登录超时任务
         loginTimeoutTasks[uuid]?.let { taskId ->
-            plugin.server.scheduler.cancelTask(taskId)
+            taskId.cancel()
             loginTimeoutTasks.remove(uuid)
         }
 
         // 取消注册超时任务
         registerTimeoutTasks[uuid]?.let { taskId ->
-            plugin.server.scheduler.cancelTask(taskId)
+            taskId.cancel()
             registerTimeoutTasks.remove(uuid)
         }
 

@@ -46,7 +46,7 @@ object UpdateChecker {
         }
 
         // 使用 Bukkit 调度器异步执行
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        KaLoginScheduler.runAsync(Runnable {
             try {
                 val request = HttpRequest.newBuilder()
                     .uri(URI.create(PLUGIN_YML_URL))

@@ -4,7 +4,7 @@ description: KaLogin - A modern login, registration, and account security plugin
 
 # Home
 
-**KaLogin** is a Minecraft Paper login plugin with modern Dialog based login, registration, password change, email binding, password recovery, and welcome terms flows.
+**KaLogin** is a Minecraft login plugin for Paper, Folia, and Spigot with modern Dialog based login, registration, password change, email binding, password recovery, and welcome terms flows.
 
 KaLogin can work as a standalone account system, or work with AuthMe. In AuthMe mode, AuthMe stores account and authentication data, while KaLogin provides the user interface and extra account features.
 

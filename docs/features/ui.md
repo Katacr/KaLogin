@@ -29,12 +29,18 @@ Body:
     type: 'message'
     text: '<gradient:gold:yellow>欢迎回到服务器！<reset>'
     width: 300
+
+  tips:
+    type: 'message'
+    text:
+      - '&7请输入密码继续游戏'
+      - '&7遇到问题请联系管理员'
 ```
 
 | 属性 | 说明 |
 |---|---|
 | `type` | 使用 `message` |
-| `text` | 显示的文字 |
+| `text` | 显示的文字，可以写单个字符串或字符串列表 |
 | `width` | 可选，文字区域宽度 |
 
 ### 物品
@@ -44,6 +50,7 @@ Body:
   icon:
     type: 'item'
     material: 'apple'
+    amount: 1
     name: '&a服务器图标'
     lore:
       - '&7欢迎来到服务器'
@@ -51,18 +58,26 @@ Body:
     description_width: 300
     item_model: ''
     custom_model_data: 1001
+    show_overlays: false
+    show_tooltip: true
+    width: 16
+    height: 16
 ```
 
 | 属性 | 说明 |
 |---|---|
 | `type` | 使用 `item` |
 | `material` | 物品 ID，例如 `apple`、`diamond` |
+| `amount` | 物品数量，默认 `1` |
 | `name` | 物品名称 |
 | `lore` | 物品 Lore |
 | `description` | 物品下方说明，可写文本或列表 |
 | `description_width` | 可选，说明文字宽度 |
 | `item_model` | 自定义物品模型，格式为 `namespace:path` |
 | `custom_model_data` | 旧版 CustomModelData 数值 |
+| `show_overlays` | 是否显示数量、耐久等叠加层，默认 `false` |
+| `show_tooltip` | 鼠标悬停时是否显示原版物品 Tooltip，默认 `true` |
+| `width` / `height` | 物品图标尺寸，默认 `16` |
 
 ## 文本格式
 

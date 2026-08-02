@@ -3,16 +3,13 @@ package org.katacr.kalogin
 import fr.xephi.authme.api.v3.AuthMeApi
 import fr.xephi.authme.events.LoginEvent
 import fr.xephi.authme.events.RestoreSessionEvent
-import io.papermc.paper.registry.data.dialog.ActionButton
-import io.papermc.paper.registry.data.dialog.action.DialogAction
-import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
-import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.katacr.kalogin.dialog.LoginResponse
+import org.katacr.kalogin.dialog.RegisterResponse
 import org.katacr.kalogin.listener.KaLoginAPI
-import java.time.Duration
 
 /**
  * AuthMe 模式下的登录监听器
@@ -40,7 +37,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         if (plugin.server.isPrimaryThread) {
             action()
         } else {
-            plugin.server.scheduler.runTask(plugin, Runnable { action() })
+            KaLoginScheduler.runGlobal(Runnable { action() })
         }
     }
 
@@ -100,13 +97,13 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 }
                 plugin.eventActionExecutor.execute(player, "login")
                 KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
-                plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                     if (player.isOnline) {
                         plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeDialog()
+                        plugin.dialogPlatform.close(player)
                         plugin.emailBindManager.showPromptIfNeeded(player)
                     }
-                }, 1L)
+                })
             }
             return
         }
@@ -126,12 +123,12 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             plugin.eventActionExecutor.execute(player, "login")
             plugin.emailBindManager.showPromptIfNeeded(player)
             KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
-            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                 if (player.isOnline) {
                     plugin.antiCheatManager.markProgrammaticClose(player)
-                    player.closeDialog()
+                    plugin.dialogPlatform.close(player)
                 }
-            }, 1L)
+            })
         }
     }
 
@@ -227,14 +224,13 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
         val authMeApi = AuthMeApi.getInstance() ?: return
 
-        val loginAction = DialogAction.customClick(
-            DialogActionCallback { response, _ ->
-                val password = response.getText("login_password")
-                val autoLoginCheckbox = response.getBoolean("auto_login_by_ip") ?: false
+        val loginAction: (LoginResponse) -> Unit = loginAction@{ response ->
+                val password = response.password
+                val autoLoginCheckbox = response.autoLoginByIp
 
                 if (password.isNullOrBlank()) {
                     reopenLoginDialog(player, plugin.messageManager.getMessage("login.password-empty"))
-                    return@DialogActionCallback
+                    return@loginAction
                 }
 
                 // 使用 AuthMe API 验证密码
@@ -243,7 +239,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         // 验证成功，强制登录
                         authMeApi.forceLogin(player)
                         plugin.antiCheatManager.markProgrammaticClose(player)
-                        player.closeDialog()
+                        plugin.dialogPlatform.close(player)
                         player.sendMessage(plugin.messageManager.getComponent("login.success"))
 
                         // 更新数据库：最后登录 IP 和自动登录设置
@@ -281,12 +277,10 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     // 显示通用错误消息
                     reopenLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to (maxAttempts - (loginAttempts[player.uniqueId] ?: 0))))
                 }
-            },
-            ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
-        )
+            }
 
         plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { email ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
                 plugin.antiCheatManager.markDialogOpened(player)
                 val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
@@ -295,18 +289,13 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 } else {
                     LoginUI.parseClickableText(plugin.messageManager.getMessage("login.recover-entry"), player)
                 }
-                val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
-                    .action(loginAction)
-                    .build()
-
-                val dialog = LoginUI.buildLoginDialog(
+                plugin.dialogPlatform.showLogin(
                     player,
                     plugin.messageManager.getComponent("login.dialog-title"),
                     description,
                     errorComponent,
-                    confirmButton
+                    loginAction
                 )
-                player.showDialog(dialog)
             })
         }
     }
@@ -333,12 +322,12 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             plugin.eventActionExecutor.execute(player, "register")
             plugin.emailBindManager.showPromptIfNeeded(player)
             KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
-            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                 if (player.isOnline) {
                     plugin.antiCheatManager.markProgrammaticClose(player)
-                    player.closeDialog()
+                    plugin.dialogPlatform.close(player)
                 }
-            }, 1L)
+            })
         }
         return true
     }
@@ -370,31 +359,30 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
         val authMeApi = AuthMeApi.getInstance() ?: return
 
-        val registerAction = DialogAction.customClick(
-            DialogActionCallback { response, _ ->
-                val password = response.getText("reg_password")
-                val confirmPassword = response.getText("reg_confirm_password")
+        val registerAction: (RegisterResponse) -> Unit = registerAction@{ response ->
+                val password = response.password
+                val confirmPassword = response.confirmPassword
 
                 if (password.isNullOrBlank()) {
                     reopenRegisterDialog(player, plugin.messageManager.getMessage("register.password-empty"))
-                    return@DialogActionCallback
+                    return@registerAction
                 }
 
                 val validationError = passwordValidator.validate(password)
                 if (validationError != null) {
                     reopenRegisterDialog(player, plugin.messageManager.getMessage("register.password-invalid", "error" to validationError))
-                    return@DialogActionCallback
+                    return@registerAction
                 }
 
                 if (password != confirmPassword) {
                     reopenRegisterDialog(player, plugin.messageManager.getMessage("register.password-mismatch"))
-                    return@DialogActionCallback
+                    return@registerAction
                 }
 
                 player.sendMessage(plugin.messageManager.getComponent("register.saving"))
                 val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
                 plugin.dbManager.initPlayerForAuthMe(player.uniqueId, player.name, currentIp).thenAccept { dbSaved ->
-                    plugin.server.scheduler.runTask(plugin, Runnable {
+                    KaLoginScheduler.runPlayer(player, Runnable {
                         if (!player.isOnline) return@Runnable
 
                         try {
@@ -402,7 +390,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                             loginAttempts.remove(player.uniqueId)
                             authMeApi.forceRegister(player, password, true)
                             plugin.antiCheatManager.markProgrammaticClose(player)
-                            player.closeDialog()
+                            plugin.dialogPlatform.close(player)
                             player.sendMessage(plugin.messageManager.getComponent("register.success"))
                             lastDialogReshowTimes.remove(player.uniqueId)
 
@@ -410,7 +398,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                                 plugin.logger.warning("AuthMe registration succeeded for ${player.name}, but KaLogin database init failed")
                             }
 
-                            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                            KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                                 if (
                                     player.isOnline &&
                                     pendingRegisterPlayers.contains(player.uniqueId) &&
@@ -418,7 +406,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                                 ) {
                                     completePendingRegisterLogin(player)
                                 }
-                            }, 1L)
+                            })
                         } catch (e: Exception) {
                             pendingRegisterPlayers.remove(player.uniqueId)
                             // 捕获 AuthMe 注册异常，获取具体错误信息
@@ -445,24 +433,17 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         }
                     })
                 }
-            },
-            ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
-        )
+            }
 
         val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
-        val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("register.dialog-button"))
-            .action(registerAction)
-            .build()
-
-        val dialog = LoginUI.buildRegisterDialog(
+        plugin.antiCheatManager.markDialogOpened(player)
+        plugin.dialogPlatform.showRegister(
             player,
             plugin.messageManager.getComponent("register.dialog-title"),
             null,
             errorComponent,
-            confirmButton
+            registerAction
         )
-        plugin.antiCheatManager.markDialogOpened(player)
-        player.showDialog(dialog)
     }
 
     private fun reopenRegisterDialog(player: Player, errorMessage: String? = null) {
@@ -478,11 +459,11 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     private fun showLoginDialogDelayed(player: Player) {
         val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
         if (delayTicks > 0) {
-            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, delayTicks, Runnable {
                 if (player.isOnline) {
                     showLoginDialog(player)
                 }
-            }, delayTicks)
+            })
         } else {
             showLoginDialog(player)
         }
@@ -495,11 +476,11 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     private fun showRegisterDialogDelayed(player: Player) {
         val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
         if (delayTicks > 0) {
-            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, delayTicks, Runnable {
                 if (player.isOnline) {
                     showRegisterDialog(player)
                 }
-            }, delayTicks)
+            })
         } else {
             showRegisterDialog(player)
         }

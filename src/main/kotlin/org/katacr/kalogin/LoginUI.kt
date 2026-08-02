@@ -1,28 +1,22 @@
-@file:Suppress("UnstableApiUsage")
-
 package org.katacr.kalogin
 
-import io.papermc.paper.dialog.Dialog
-import io.papermc.paper.registry.data.dialog.ActionButton
-import io.papermc.paper.registry.data.dialog.DialogBase
-import io.papermc.paper.registry.data.dialog.body.DialogBody
-import io.papermc.paper.registry.data.dialog.input.DialogInput
-import io.papermc.paper.registry.data.dialog.input.TextDialogInput
-import io.papermc.paper.registry.data.dialog.type.DialogType
 import me.clip.placeholderapi.PlaceholderAPI
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.minimessage.MiniMessage
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.bukkit.Material
-import org.bukkit.NamespacedKey
+import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
-import org.bukkit.inventory.ItemStack
 import java.io.File
 
-
+/**
+ * 平台无关的登录 UI 配置读取与文本解析工具。
+ *
+ * Paper/Folia 与 Spigot 的原生 Dialog 构建由 dialog 包中的平台适配器完成。
+ */
 object LoginUI {
     private lateinit var plugin: KaLogin
     private val miniMessage = MiniMessage.miniMessage()
@@ -32,11 +26,7 @@ object LoginUI {
         this.plugin = plugin
     }
 
-    /**
-     * Legacy 颜色代码到 MiniMessage 标签的映射
-     */
     private val legacyToMiniMessageMap = mapOf(
-        // 颜色代码
         "&0" to "<black>", "§0" to "<black>",
         "&1" to "<dark_blue>", "§1" to "<dark_blue>",
         "&2" to "<dark_green>", "§2" to "<dark_green>",
@@ -53,14 +43,12 @@ object LoginUI {
         "&d" to "<light_purple>", "§d" to "<light_purple>",
         "&e" to "<yellow>", "§e" to "<yellow>",
         "&f" to "<white>", "§f" to "<white>",
-        // 格式化代码
         "&k" to "<obfuscated>", "§k" to "<obfuscated>",
         "&l" to "<bold>", "§l" to "<bold>",
         "&m" to "<strikethrough>", "§m" to "<strikethrough>",
         "&n" to "<underline>", "§n" to "<underline>",
         "&o" to "<italic>", "§o" to "<italic>",
         "&r" to "<reset>", "§r" to "<reset>",
-        // 大写版本
         "&A" to "<green>", "§A" to "<green>",
         "&B" to "<aqua>", "§B" to "<aqua>",
         "&C" to "<red>", "§C" to "<red>",
@@ -75,11 +63,6 @@ object LoginUI {
         "&R" to "<reset>", "§R" to "<reset>"
     )
 
-    /**
-     * 将 Legacy 颜色代码转换为 MiniMessage 标签
-     * @param text 包含 Legacy 颜色代码的文本
-     * @return 转换后的文本
-     */
     private fun convertLegacyToMiniMessage(text: String): String {
         var result = text
         legacyToMiniMessageMap.forEach { (legacy, mini) ->
@@ -88,275 +71,111 @@ object LoginUI {
         return result
     }
 
-    /**
-     * 智能解析文本格式（自动检测 MiniMessage 或 Legacy）
-     * 如果文本包含 MiniMessage 标签，则使用 MiniMessage 解析以支持所有高级特性（点击、悬停等）
-     * 否则使用 Legacy 颜色代码解析
-     * 注意: hovertext 格式 (<text=...>) 应该先在 parseClickableText 中处理
-     * @param text 文本内容
-     * @return Adventure Component
-     */
-    private fun parseText(text: String): Component {
+    fun parseText(text: String): Component {
         if (text.isEmpty()) return Component.empty()
-
-        // 检测是否包含 MiniMessage 标签（<...>，排除 <text=...> 自定义格式）
-        // MiniMessage 标签特征：尖括号包裹的字母、冒号、渐变等
         val hasMiniMessageTags = text.contains(Regex("<[a-z_]+(?:[:][^>]*)?>", RegexOption.IGNORE_CASE))
 
         return if (hasMiniMessageTags) {
-            // 检测是否包含 Legacy 颜色代码
             val hasLegacyCodes = text.contains(Regex("[&§][0-9a-fA-FlmnoOrkLKMNO]"))
-            
-            val textToParse = if (hasLegacyCodes) {
-                // 将 Legacy 颜色代码转换为 MiniMessage 标签
-                convertLegacyToMiniMessage(text)
-            } else {
-                text
-            }
-            
-            // 使用 MiniMessage 解析，保留所有高级特性（点击、悬停、渐变等）
-            miniMessage.deserialize(textToParse)
+            miniMessage.deserialize(if (hasLegacyCodes) convertLegacyToMiniMessage(text) else text)
         } else {
-            // 使用 Legacy 颜色代码解析
             legacySerializer.deserialize(text.replace("&", "§"))
         }
     }
 
-    /**
-     * 解析文本，支持MiniMessage格式和Legacy颜色代码
-     */
-    private fun parseText(text: String, player: Player): Component {
-        val processedText = resolveVariables(text, player)
-        return parseText(processedText)
-    }
+    fun parseText(text: String, player: Player): Component =
+        parseText(resolveVariables(text, player))
 
-    /**
-     * 解析PAPI变量
-     */
-    private fun resolveVariables(text: String, player: Player): String {
-        var result = text
-
-        // 替换 {player_name} 或 %player_name%
-        result = result.replace(Regex("\\{player_name}|%player_name%"), player.name)
-
-        // 支持PAPI变量（如果PAPI已加载）
+    fun resolveVariables(text: String, player: Player): String {
+        var result = text.replace(Regex("\\{player_name}|%player_name%"), player.name)
         if (plugin.server.pluginManager.isPluginEnabled("PlaceholderAPI")) {
             result = PlaceholderAPI.setPlaceholders(player, result)
         }
-
         return result
     }
 
-    /**
-     * 从配置节构建文本输入框
-     * @param key 输入框标识符
-     * @param label 标签组件
-     * @param section 配置节点（包含 width/height/labelVisible/initial）
-     * @param maxLength 最大输入长度
-     * @return 构建好的 DialogInput
-     */
-    private fun buildTextInput(key: String, label: Component, section: org.bukkit.configuration.ConfigurationSection?, maxLength: Int): DialogInput {
-        val builder = DialogInput.text(key, label)
-            .width(section?.getInt("width", 200) ?: 200)
-            .labelVisible(section?.getBoolean("labelVisible", true) ?: true)
-            .initial(section?.getString("initial", "") ?: "")
-            .maxLength(maxLength)
-        val height = section?.getInt("height", 20) ?: 20
-        return if (height > 0) {
-            builder.multiline(TextDialogInput.MultilineOptions.create(1, height)).build()
-        } else {
-            builder.build()
-        }
-    }
-
-    /**
-     * 解析可点击文本（hovertext）
-     * 格式: <text=显示文字;hover=悬停文字;command=指令;url=链接>
-     * 也支持带单引号格式: <text='显示文字';hover='悬停文字';url='链接'>
-     */
     fun parseClickableText(text: String, player: Player): Component {
-        // 先解析变量
         val resolvedText = resolveVariables(text, player)
-
-        // 查找所有的 <text=...> 标签（支持可选的单引号包裹值）
         val regex = Regex("<text=['\"]?([^'\";\n]+)['\"]?(?:;hover=['\"]?([^'\";\n]+)['\"]?)?(?:;command=['\"]?([^'\";\n]+)['\"]?)?(?:;url=['\"]?([^'\";\n]+)['\"]?)?>")
         var lastIndex = 0
         val builder = Component.text()
 
         while (true) {
             val match = regex.find(resolvedText, lastIndex) ?: break
-
-            // 添加匹配前的文本
             val prefixText = resolvedText.substring(lastIndex, match.range.first)
             if (prefixText.isNotEmpty()) {
                 builder.append(parseText(prefixText))
             }
 
-            val displayText = match.groupValues[1]
-            val hoverText = match.groupValues[2]
-            val command = match.groupValues[3]
-            val url = match.groupValues[4]
-
-            // 构建可点击文本
-            val displayComponent = parseText(displayText)
-
+            val displayComponent = parseText(match.groupValues[1])
             val clickableComponent = when {
-                command.isNotEmpty() -> {
-                    displayComponent.clickEvent(ClickEvent.runCommand(command))
-                }
-                url.isNotEmpty() -> {
-                    displayComponent.clickEvent(ClickEvent.openUrl(url))
-                }
-                else -> {
-                    displayComponent
-                }
+                match.groupValues[3].isNotEmpty() -> displayComponent.clickEvent(ClickEvent.runCommand(match.groupValues[3]))
+                match.groupValues[4].isNotEmpty() -> displayComponent.clickEvent(ClickEvent.openUrl(match.groupValues[4]))
+                else -> displayComponent
             }
 
-            val finalComponent = if (hoverText.isNotEmpty()) {
-                clickableComponent.hoverEvent(
-                    HoverEvent.showText(
-                        parseText(hoverText)
-                    )
-                )
-            } else {
-                clickableComponent
-            }
-
-            builder.append(finalComponent)
+            val hoverText = match.groupValues[2]
+            builder.append(
+                if (hoverText.isNotEmpty()) clickableComponent.hoverEvent(HoverEvent.showText(parseText(hoverText)))
+                else clickableComponent
+            )
             lastIndex = match.range.last + 1
         }
 
-        // 添加剩余文本
         if (lastIndex < resolvedText.length) {
             builder.append(parseText(resolvedText.substring(lastIndex)))
         }
 
-        return if (lastIndex == 0) {
-            // 没有匹配到hovertext标签，直接返回普通文本
-            parseText(resolvedText)
-        } else {
-            builder.build()
-        }
+        return if (lastIndex == 0) parseText(resolvedText) else builder.build()
     }
 
-    /**
-     * 从UI配置文件构建DialogBody列表
-     * @param configPath 格式: "ui.xxx.Body" -> 从 plugins/KaLogin/ui/xxx.yml 读取 Body 节点
-     */
-    private fun buildBodyListFromConfig(player: Player, configPath: String): List<DialogBody> {
-        val bodyList = mutableListOf<DialogBody>()
-        
-        // 解析路径: "ui.login.Body" -> fileName="login", sectionPath="Body"
-        val pathParts = configPath.removePrefix("ui.").split(".", limit = 2)
-        if (pathParts.isEmpty()) return bodyList
-        
-        val fileName = pathParts[0]
-        val sectionPath = if (pathParts.size > 1) pathParts[1] else null
-        
-        // 从 ui 文件夹读取配置
+    fun bodyElements(player: Player, fileName: String): List<DialogBodyElement> {
         val uiFile = File(plugin.dataFolder, "ui/$fileName.yml")
-        if (!uiFile.exists()) return bodyList
-        
-        val uiConfig = YamlConfiguration.loadConfiguration(uiFile)
-        val config = if (sectionPath != null) {
-            uiConfig.getConfigurationSection(sectionPath)
-        } else {
-            uiConfig
-        }
-        
-        if (config == null) return bodyList
+        if (!uiFile.exists()) return emptyList()
+
+        val config = YamlConfiguration.loadConfiguration(uiFile).getConfigurationSection("Body") ?: return emptyList()
+        val bodyList = mutableListOf<DialogBodyElement>()
 
         config.getKeys(false).forEach { key ->
             val section = config.getConfigurationSection(key) ?: return@forEach
-            val type = section.getString("type", "message")
-
-            when (type) {
+            when (section.getString("type", "message")?.trim()?.lowercase()) {
+                "none" -> Unit
                 "message" -> {
-                    val text = section.getString("text", "")
-                    val width = section.getInt("width", -1)
-                    text?.let {
-                        if (it.isNotEmpty()) {
-                            val component = parseClickableText(it, player)
-                            if (width > 0) {
-                                bodyList.add(DialogBody.plainMessage(component, width))
-                            } else {
-                                bodyList.add(DialogBody.plainMessage(component))
-                            }
-                        }
+                    val text = readMessageText(section, "text", fileName, key)
+                    if (!text.isNullOrEmpty()) {
+                        bodyList.add(DialogBodyElement.Message(parseClickableText(text, player), section.getInt("width", -1)))
                     }
                 }
                 "item" -> {
-                    val material = section.getString("material", "apple")
-                    val name = section.getString("name", "")
-                    val lore = section.getStringList("lore")
-                    // 支持 description 为字符串或列表
-                    val descriptionList: List<String> = when {
+                    val material = section.getString("material", "apple") ?: "apple"
+                    val bukkitMaterial = runCatching { Material.valueOf(material.uppercase()) }.getOrNull()
+                    if (bukkitMaterial == null) {
+                        plugin.logger.warning("Invalid material: $material")
+                        return@forEach
+                    }
+
+                    val descriptionList = when {
                         section.isList("description") -> section.getStringList("description")
                         section.getString("description")?.isNotEmpty() == true -> listOf(section.getString("description")!!)
                         else -> emptyList()
                     }
-                    val descriptionWidth = section.getInt("description_width", -1)
-                    val itemModel = section.getString("item_model", "")
-                    val customModelData = if (section.contains("custom_model_data")) {
-                        section.getInt("custom_model_data")
-                    } else {
-                        null
-                    }
 
-                    try {
-                        val bukkitMaterial = material?.let { Material.valueOf(it.uppercase()) }
-                        val itemStack = bukkitMaterial?.let { ItemStack(it) }
-
-                        // 设置 name、lore、item_model 和 custom_model_data 到 ItemStack 上
-                        itemStack?.editMeta { meta ->
-                            // 设置物品名称
-                            if (name?.isNotEmpty() == true) {
-                                meta.displayName(parseText(name, player))
-                            }
-                            // 设置物品 Lore
-                            if (lore.isNotEmpty()) {
-                                meta.lore(lore.map { parseText(it, player) })
-                            }
-                            // 设置 item_model
-                            if (itemModel?.isNotEmpty() == true) {
-                                try {
-                                    val namespacedKey = NamespacedKey.fromString(itemModel)
-                                    if (namespacedKey != null) {
-                                        meta.itemModel = namespacedKey
-                                    }
-                                } catch (e: IllegalArgumentException) {
-                                    plugin.logger.warning("Invalid item_model: $itemModel")
-                                }
-                            }
-                            // 设置 custom_model_data
-                            if (customModelData != null) {
-                                meta.setCustomModelData(customModelData)
-                            }
-                        }
-
-                        // description 作为 DialogBody.item 的额外描述文本（可选）
-                        val descriptionBody = if (descriptionList.isNotEmpty()) {
-                            val descriptionText = descriptionList.joinToString("\n")
-                            val descriptionComponent = parseText(descriptionText, player)
-                            if (descriptionWidth > 0) {
-                                DialogBody.plainMessage(descriptionComponent, descriptionWidth)
-                            } else {
-                                DialogBody.plainMessage(descriptionComponent)
-                            }
-                        } else null
-
-                        val itemBody = itemStack?.let { DialogBody.item(it) }
-                            ?.description(descriptionBody)
-                            ?.showDecorations(false)
-                            ?.showTooltip(true)
-                            ?.width(16)
-                            ?.height(16)
-                            ?.build()
-
-                        itemBody?.let { bodyList.add(it) }
-                    } catch (e: IllegalArgumentException) {
-                        plugin.logger.warning("Invalid material: $material")
-                    }
+                    bodyList.add(
+                        DialogBodyElement.Item(
+                            material = bukkitMaterial,
+                            amount = section.getInt("amount", 1).coerceAtLeast(1),
+                            name = section.getString("name", ""),
+                            lore = section.getStringList("lore"),
+                            description = descriptionList,
+                            descriptionWidth = section.getInt("description_width", -1),
+                            itemModel = section.getString("item_model", ""),
+                            customModelData = if (section.contains("custom_model_data")) section.getInt("custom_model_data") else null,
+                            showOverlays = section.getBoolean("show_overlays", false),
+                            showTooltip = section.getBoolean("show_tooltip", true),
+                            width = section.getInt("width", 16),
+                            height = section.getInt("height", 16)
+                        )
+                    )
                 }
             }
         }
@@ -364,329 +183,73 @@ object LoginUI {
         return bodyList
     }
 
-    /**
-     * 构建登录对话框
-     */
-    fun buildLoginDialog(
-        player: Player,
-        title: Component,
-        description: Component?,
-        error: Component?,
-        confirmButton: ActionButton
-    ): Dialog {
-        val bodyList = mutableListOf<DialogBody>()
-        val inputList = mutableListOf<DialogInput>()
-
-        // 添加UI配置文件中的body
-        bodyList.addAll(buildBodyListFromConfig(player, "ui.login.Body"))
-
-        // 添加描述文本
-        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        // 添加错误消息
-        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
-
-        // 添加密码输入框
-        inputList.add(
-            buildTextInput("login_password", plugin.messageManager.getComponent("login.password-input"),
-                plugin.config.getConfigurationSection("inputs.login.login_password"), maxPwdLength)
-        )
-
-        // 添加自动登录复选框（如果配置启用）
-        if (plugin.config.getBoolean("login.show-auto-login-checkbox", true)) {
-            val autoLoginSection = plugin.config.getConfigurationSection("inputs.login.auto_login_by_ip")
-            inputList.add(
-                DialogInput.bool("auto_login_by_ip", plugin.messageManager.getComponent("login.auto-login-checkbox"))
-                    .initial(autoLoginSection?.getBoolean("initial", false) ?: false)
-                    .build()
-            )
+    /** 读取 message.text，支持字符串、多行字符串和字符串列表，列表按换行合并。 */
+    private fun readMessageText(
+        section: ConfigurationSection,
+        path: String,
+        fileName: String,
+        componentId: String
+    ): String? {
+        val value = section.get(path) ?: return null
+        if (value is String) return value
+        if (value is List<*>) {
+            val lines = mutableListOf<String>()
+            value.forEachIndexed { index, item ->
+                if (item is String) {
+                    lines.add(item)
+                } else {
+                    plugin.logger.warning(
+                        "Invalid message text entry in ui/$fileName.yml Body.$componentId.$path[$index]: expected string"
+                    )
+                }
+            }
+            return lines.joinToString("\n")
         }
-
-        // 构建对话框（基岩版玩家允许关闭，由服务器端控制重开）
-        val closeable = GeyserCompat.isBedrockPlayer(player)
-        val afterAction = if (closeable) DialogBase.DialogAfterAction.CLOSE else DialogBase.DialogAfterAction.NONE
-        return Dialog.create { builder ->
-            builder.empty()
-                .base(
-                    DialogBase.builder(title)
-                        .pause(false)
-                        .body(bodyList)
-                        .inputs(inputList)
-                        .canCloseWithEscape(closeable)
-                        .afterAction(afterAction)
-                        .build()
-                )
-                .type(DialogType.notice(confirmButton))
-        }
+        plugin.logger.warning("Invalid message text in ui/$fileName.yml Body.$componentId.$path: expected string or string list")
+        return null
     }
 
-    /**
-     * 构建注册对话框
-     */
-    fun buildRegisterDialog(
-        player: Player,
-        title: Component,
-        description: Component?,
-        error: Component?,
-        confirmButton: ActionButton
-    ): Dialog {
-        val bodyList = mutableListOf<DialogBody>()
-        val inputList = mutableListOf<DialogInput>()
-
-        // 添加UI配置文件中的body
-        bodyList.addAll(buildBodyListFromConfig(player, "ui.register.Body"))
-
-        // 添加描述文本
-        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        // 添加错误消息
-        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
-
-        // 添加密码输入框
-        inputList.add(
-            buildTextInput("reg_password", plugin.messageManager.getComponent("register.password-input"),
-                plugin.config.getConfigurationSection("inputs.register.reg_password"), maxPwdLength)
+    fun textInput(key: String, label: Component, sectionPath: String, maxLength: Int): TextInputSpec {
+        val section = plugin.config.getConfigurationSection(sectionPath)
+        return TextInputSpec(
+            key = key,
+            label = label,
+            width = section?.getInt("width", 200) ?: 200,
+            height = section?.getInt("height", 20) ?: 20,
+            labelVisible = section?.getBoolean("labelVisible", true) ?: true,
+            initial = section?.getString("initial", "") ?: "",
+            maxLength = maxLength
         )
-
-        // 添加确认密码输入框
-        inputList.add(
-            buildTextInput("reg_confirm_password", plugin.messageManager.getComponent("register.confirm-password-input"),
-                plugin.config.getConfigurationSection("inputs.register.reg_confirm_password"), maxPwdLength)
-        )
-
-        // 构建对话框（基岩版玩家允许关闭，由服务器端控制重开）
-        val closeable = GeyserCompat.isBedrockPlayer(player)
-        val afterAction = if (closeable) DialogBase.DialogAfterAction.CLOSE else DialogBase.DialogAfterAction.NONE
-        return Dialog.create { builder ->
-            builder.empty()
-                .base(
-                    DialogBase.builder(title)
-                        .pause(false)
-                        .body(bodyList)
-                        .inputs(inputList)
-                        .canCloseWithEscape(closeable)
-                        .afterAction(afterAction)
-                        .build()
-                )
-                .type(DialogType.notice(confirmButton))
-        }
     }
 
-    /**
-     * 构建修改密码对话框
-     */
-    fun buildChangePasswordDialog(
-        player: Player,
-        title: Component,
-        description: Component?,
-        error: Component?,
-        confirmButton: ActionButton,
-        cancelButton: ActionButton
-    ): Dialog {
-        val bodyList = mutableListOf<DialogBody>()
-        val inputList = mutableListOf<DialogInput>()
-
-        // 添加UI配置文件中的body
-        bodyList.addAll(buildBodyListFromConfig(player, "ui.change-password.Body"))
-
-        // 添加描述文本
-        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        // 添加错误消息
-        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
-
-        // 添加旧密码输入框
-        inputList.add(
-            buildTextInput("old_password", plugin.messageManager.getComponent("change-password.old-password-input"),
-                plugin.config.getConfigurationSection("inputs.change-password.old_password"), maxPwdLength)
-        )
-
-        // 添加新密码输入框
-        inputList.add(
-            buildTextInput("new_password", plugin.messageManager.getComponent("change-password.new-password-input"),
-                plugin.config.getConfigurationSection("inputs.change-password.new_password"), maxPwdLength)
-        )
-
-        // 添加确认新密码输入框
-        inputList.add(
-            buildTextInput("confirm_new_password", plugin.messageManager.getComponent("change-password.confirm-new-password-input"),
-                plugin.config.getConfigurationSection("inputs.change-password.confirm_new_password"), maxPwdLength)
-        )
-
-        // 构建对话框
-        return Dialog.create { builder ->
-            builder.empty()
-                .base(
-                    DialogBase.builder(title)
-                        .pause(false)
-                        .body(bodyList)
-                        .inputs(inputList)
-                        .canCloseWithEscape(true)
-                        .afterAction(DialogBase.DialogAfterAction.NONE)
-                        .build()
-                )
-                .type(DialogType.confirmation(confirmButton, cancelButton))
-        }
-    }
-
-    fun buildBindEmailDialog(
-        player: Player,
-        title: Component,
-        description: Component?,
-        error: Component?,
-        confirmButton: ActionButton,
-        cancelButton: ActionButton,
-        showEmailInput: Boolean = true,
-        showCodeInput: Boolean = false
-    ): Dialog {
-        val bodyList = mutableListOf<DialogBody>()
-        val inputList = mutableListOf<DialogInput>()
-
-        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
-        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        val emailSection = plugin.config.getConfigurationSection("inputs.bind-email.email")
-        val codeSection = plugin.config.getConfigurationSection("inputs.bind-email.code")
-
-        if (showEmailInput) {
-            inputList.add(
-                buildTextInput(
-                    "bind_email",
-                    plugin.messageManager.getComponent("bind-email.email-input"),
-                    emailSection,
-                    255
-                )
-            )
-        }
-
-        if (showCodeInput) {
-            inputList.add(
-                buildTextInput(
-                    "bind_code",
-                    plugin.messageManager.getComponent("bind-email.code-input"),
-                    codeSection,
-                    16
-                )
-            )
-        }
-
-        return Dialog.create { builder ->
-            builder.empty()
-                .base(
-                    DialogBase.builder(title)
-                        .pause(false)
-                        .body(bodyList)
-                        .inputs(inputList)
-                        .canCloseWithEscape(true)
-                        .afterAction(DialogBase.DialogAfterAction.NONE)
-                        .build()
-                )
-                .type(DialogType.confirmation(confirmButton, cancelButton))
-        }
-    }
-
-    fun buildRecoverPasswordDialog(
-        player: Player,
-        title: Component,
-        description: Component?,
-        error: Component?,
-        confirmButton: ActionButton,
-        cancelButton: ActionButton,
-        requireCode: Boolean = false
-    ): Dialog {
-        val bodyList = mutableListOf<DialogBody>()
-        val inputList = mutableListOf<DialogInput>()
-
-        description?.let { bodyList.add(DialogBody.plainMessage(it)) }
-        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        val codeSection = plugin.config.getConfigurationSection("inputs.recover-password.code")
-        val newPasswordSection = plugin.config.getConfigurationSection("inputs.recover-password.new_password")
-        val confirmNewPasswordSection = plugin.config.getConfigurationSection("inputs.recover-password.confirm_new_password")
-        val maxPwdLength = plugin.config.getInt("settings.max-password-length", 20)
-
-        if (requireCode) {
-            inputList.add(
-                buildTextInput(
-                    "recover_code",
-                    plugin.messageManager.getComponent("recover-password.code-input"),
-                    codeSection,
-                    16
-                )
-            )
-            inputList.add(
-                buildTextInput(
-                    "recover_new_password",
-                    plugin.messageManager.getComponent("recover-password.new-password-input"),
-                    newPasswordSection,
-                    maxPwdLength
-                )
-            )
-            inputList.add(
-                buildTextInput(
-                    "recover_confirm_new_password",
-                    plugin.messageManager.getComponent("recover-password.confirm-new-password-input"),
-                    confirmNewPasswordSection,
-                    maxPwdLength
-                )
-            )
-        }
-
-        return Dialog.create { builder ->
-            builder.empty()
-                .base(
-                    DialogBase.builder(title)
-                        .pause(false)
-                        .body(bodyList)
-                        .inputs(inputList)
-                        .canCloseWithEscape(true)
-                        .afterAction(DialogBase.DialogAfterAction.NONE)
-                        .build()
-                )
-                .type(DialogType.confirmation(confirmButton, cancelButton))
-        }
-    }
-
-    fun buildWelcomeDialog(
-        player: Player,
-        title: Component,
-        error: Component?,
-        confirmButton: ActionButton
-    ): Dialog {
-        val bodyList = mutableListOf<DialogBody>()
-        val inputList = mutableListOf<DialogInput>()
-
-        bodyList.addAll(buildBodyListFromConfig(player, "ui.welcome.Body"))
-        error?.let { bodyList.add(DialogBody.plainMessage(it)) }
-
-        val welcomeSection = plugin.config.getConfigurationSection("inputs.welcome.accept_terms")
-        inputList.add(
-            DialogInput.bool("welcome_accept_terms", plugin.messageManager.getComponent("welcome.accept-checkbox"))
-                .initial(welcomeSection?.getBoolean("initial", false) ?: false)
-                .build()
-        )
-
-        // 构建对话框（基岩版玩家允许关闭，由服务器端控制重开）
-        val closeable = GeyserCompat.isBedrockPlayer(player)
-        val afterAction = if (closeable) DialogBase.DialogAfterAction.CLOSE else DialogBase.DialogAfterAction.NONE
-        return Dialog.create { builder ->
-            builder.empty()
-                .base(
-                    DialogBase.builder(title)
-                        .pause(false)
-                        .body(bodyList)
-                        .inputs(inputList)
-                        .canCloseWithEscape(closeable)
-                        .afterAction(afterAction)
-                        .build()
-                )
-                .type(DialogType.notice(confirmButton))
-        }
-    }
+    fun boolInitial(sectionPath: String): Boolean =
+        plugin.config.getConfigurationSection(sectionPath)?.getBoolean("initial", false) ?: false
 }
+
+sealed class DialogBodyElement {
+    data class Message(val text: Component, val width: Int) : DialogBodyElement()
+    data class Item(
+        val material: Material,
+        val amount: Int,
+        val name: String?,
+        val lore: List<String>,
+        val description: List<String>,
+        val descriptionWidth: Int,
+        val itemModel: String?,
+        val customModelData: Int?,
+        val showOverlays: Boolean,
+        val showTooltip: Boolean,
+        val width: Int,
+        val height: Int
+    ) : DialogBodyElement()
+}
+
+data class TextInputSpec(
+    val key: String,
+    val label: Component,
+    val width: Int,
+    val height: Int,
+    val labelVisible: Boolean,
+    val initial: String,
+    val maxLength: Int
+)

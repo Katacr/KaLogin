@@ -56,7 +56,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         }
 
         plugin.dbManager.deletePlayer(player.uniqueId).thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runGlobal(Runnable {
                 if (success) {
                     plugin.messageManager.sendMessage(sender, "command.delete.success", "player" to playerName)
                     // 如果玩家在线，踢出玩家
@@ -92,7 +92,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         }
 
         plugin.dbManager.setPassword(player.uniqueId, password).thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runGlobal(Runnable {
                 if (success) {
                     plugin.messageManager.sendMessage(sender, "command.register.success", "player" to playerName)
                 } else {
@@ -125,7 +125,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         val target = args[1]
         if (target.equals("all", ignoreCase = true) || target.equals("*", ignoreCase = true)) {
             plugin.dbManager.resetAcceptedTermsForAll().thenAccept { updated ->
-                plugin.server.scheduler.runTask(plugin, Runnable {
+                KaLoginScheduler.runGlobal(Runnable {
                     plugin.messageManager.sendMessage(sender, "command.reset-terms.all-success", "count" to updated)
                 })
             }
@@ -139,7 +139,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         }
 
         plugin.dbManager.resetAcceptedTerms(offlinePlayer.uniqueId).thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runGlobal(Runnable {
                 if (success) {
                     plugin.messageManager.sendMessage(sender, "command.reset-terms.success", "player" to target)
                 } else {

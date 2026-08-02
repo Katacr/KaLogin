@@ -1,19 +1,12 @@
-@file:Suppress("UnstableApiUsage")
-
 package org.katacr.kalogin
 
-import io.papermc.paper.registry.data.dialog.ActionButton
-import io.papermc.paper.registry.data.dialog.action.DialogAction
-import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
 import jakarta.mail.*
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
-import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
-import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
@@ -43,7 +36,7 @@ class EmailBindManager(private val plugin: KaLogin) {
         }
         plugin.dbManager.shouldShowBindEmailPrompt(player.uniqueId).thenAccept { shouldShow ->
             if (!shouldShow) return@thenAccept
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
                 player.sendMessage(LoginUI.parseClickableText(plugin.messageManager.getMessage("bind-email.prompt-message"), player))
             })
@@ -52,7 +45,7 @@ class EmailBindManager(private val plugin: KaLogin) {
 
     fun disablePrompt(player: Player) {
         plugin.dbManager.updateBindEmailPrompt(player.uniqueId, false).thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (success) {
                     player.sendMessage(plugin.messageManager.getComponent("bind-email.prompt-disabled"))
                 } else {
@@ -69,7 +62,7 @@ class EmailBindManager(private val plugin: KaLogin) {
         }
 
         plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { boundEmail ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
 
                 val pending = pendingCodes[player.uniqueId]?.takeIf {
@@ -92,64 +85,46 @@ class EmailBindManager(private val plugin: KaLogin) {
                     else -> plugin.messageManager.getComponent("bind-email.description")
                 }
 
-                val action = DialogAction.customClick(
-                    DialogActionCallback { response, _ ->
+                val action: (org.katacr.kalogin.dialog.BindEmailResponse) -> Unit = action@{ response ->
                         val currentPending = pendingCodes[player.uniqueId]?.takeIf {
                             it.type == EmailActionType.BIND || it.type == EmailActionType.UNBIND
                         }
                         when (currentPending) {
                             null if hasBoundEmail -> sendVerificationCode(player, boundEmail, EmailActionType.UNBIND)
                             null -> {
-                                val email = response.getText("bind_email")?.trim().orEmpty()
+                                val email = response.email?.trim().orEmpty()
                                 if (!isValidEmail(email)) {
                                     openBindDialog(player, plugin.messageManager.getMessage("bind-email.invalid-email"))
-                                    return@DialogActionCallback
+                                    return@action
                                 }
                                 sendVerificationCode(player, email, EmailActionType.BIND)
                             }
                             else -> {
-                                val code = response.getText("bind_code")?.trim().orEmpty()
+                                val code = response.code?.trim().orEmpty()
                                 verifyPendingAction(player, code)
                             }
                         }
-                    },
-                    ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()
-                )
+                    }
 
-                val cancelAction = DialogAction.customClick(
-                    { _, _ ->
-                        player.closeDialog()
-                    },
-                    ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()
-                )
-
-                val confirmButton = ActionButton.builder(
-                    plugin.messageManager.getComponent(
+                plugin.dialogPlatform.showBindEmail(
+                    player,
+                    plugin.messageManager.getComponent("bind-email.dialog-title"),
+                    description,
+                    plugin.resolveDialogErrorComponent(player, errorMessage),
+                    showEmailInput = !hasBoundEmail && pending == null,
+                    showCodeInput = pending != null,
+                    confirmLabel = plugin.messageManager.getComponent(
                         when {
                             pending?.type == EmailActionType.UNBIND -> "bind-email.unbind-button"
                             pending?.type == EmailActionType.BIND -> "bind-email.verify-button"
                             hasBoundEmail -> "bind-email.send-unbind-code-button"
                             else -> "bind-email.send-code-button"
                         }
-                    )
-                ).action(action).build()
-
-                val cancelButton = ActionButton.builder(
-                    plugin.messageManager.getComponent("bind-email.cancel-button")
-                ).action(cancelAction).build()
-
-                val dialog = LoginUI.buildBindEmailDialog(
-                    player,
-                    plugin.messageManager.getComponent("bind-email.dialog-title"),
-                    description,
-                    plugin.resolveDialogErrorComponent(player, errorMessage),
-                    confirmButton,
-                    cancelButton,
-                    showEmailInput = !hasBoundEmail && pending == null,
-                    showCodeInput = pending != null
+                    ),
+                    cancelLabel = plugin.messageManager.getComponent("bind-email.cancel-button"),
+                    onSubmit = action,
+                    onCancel = { plugin.dialogPlatform.close(player) }
                 )
-
-                player.showDialog(dialog)
             })
         }
     }
@@ -161,7 +136,7 @@ class EmailBindManager(private val plugin: KaLogin) {
         }
 
         plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { email ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
 
                 if (email.isNullOrBlank()) {
@@ -182,47 +157,35 @@ class EmailBindManager(private val plugin: KaLogin) {
                     )
                 }
 
-                val action = DialogAction.customClick(
-                    DialogActionCallback { response, _ ->
+                val action: (org.katacr.kalogin.dialog.RecoverPasswordResponse) -> Unit = action@{ response ->
                         val currentPending = pendingCodes[player.uniqueId]?.takeIf { it.type == EmailActionType.RECOVER_PASSWORD }
                         if (currentPending == null) {
                             sendVerificationCode(player, email, EmailActionType.RECOVER_PASSWORD)
-                            return@DialogActionCallback
+                            return@action
                         }
 
-                        val code = response.getText("recover_code")?.trim().orEmpty()
-                        val newPassword = response.getText("recover_new_password")?.trim().orEmpty()
-                        val confirmNewPassword = response.getText("recover_confirm_new_password")?.trim().orEmpty()
+                        val code = response.code?.trim().orEmpty()
+                        val newPassword = response.newPassword?.trim().orEmpty()
+                        val confirmNewPassword = response.confirmNewPassword?.trim().orEmpty()
                         verifyRecoverPassword(player, code, newPassword, confirmNewPassword)
-                    },
-                    ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()
-                )
+                    }
 
-                val cancelAction = DialogAction.customClick(
-                    { _, _ ->
-                        player.closeDialog()
-                        plugin.showLoginDialogForPlayer(player)
-                    },
-                    ClickCallback.Options.builder().lifetime(Duration.ofMinutes(10)).build()
-                )
-
-                val dialog = LoginUI.buildRecoverPasswordDialog(
+                plugin.dialogPlatform.showRecoverPassword(
                     player,
                     plugin.messageManager.getComponent("recover-password.dialog-title"),
                     description,
                     plugin.resolveDialogErrorComponent(player, errorMessage),
-                    ActionButton.builder(
-                        plugin.messageManager.getComponent(
-                            if (pending == null) "recover-password.send-code-button" else "recover-password.reset-button"
-                        )
-                    ).action(action).build(),
-                    ActionButton.builder(plugin.messageManager.getComponent("recover-password.cancel-button"))
-                        .action(cancelAction)
-                        .build(),
-                    requireCode = pending != null
+                    requireCode = pending != null,
+                    confirmLabel = plugin.messageManager.getComponent(
+                        if (pending == null) "recover-password.send-code-button" else "recover-password.reset-button"
+                    ),
+                    cancelLabel = plugin.messageManager.getComponent("recover-password.cancel-button"),
+                    onSubmit = action,
+                    onCancel = {
+                        plugin.dialogPlatform.close(player)
+                        plugin.showLoginDialogForPlayer(player)
+                    }
                 )
-
-                player.showDialog(dialog)
             })
         }
     }
@@ -241,11 +204,11 @@ class EmailBindManager(private val plugin: KaLogin) {
         val code = generateCode()
         val expireSeconds = plugin.config.getLong("email-binding.code-expire-seconds", 300)
 
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        KaLoginScheduler.runAsync(Runnable {
             val sendResult = runCatching {
                 sendMail(email, code)
             }
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
                 if (sendResult.isSuccess) {
                     pendingCodes[player.uniqueId] = PendingCode(type, email, code, System.currentTimeMillis() + expireSeconds * 1000)
@@ -299,7 +262,7 @@ class EmailBindManager(private val plugin: KaLogin) {
         }
 
         actionFuture.thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (success) {
                     pendingCodes.remove(player.uniqueId)
                     if (pending.type == EmailActionType.BIND) {
@@ -361,7 +324,7 @@ class EmailBindManager(private val plugin: KaLogin) {
         }
 
         task.thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (success) {
                     pendingCodes.remove(player.uniqueId)
                     player.sendMessage(plugin.messageManager.getComponent("recover-password.success"))

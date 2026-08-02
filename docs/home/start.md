@@ -6,7 +6,7 @@
 
 | 项目 | 要求 |
 |---|---|
-| Minecraft | Paper 1.21.7+ |
+| Minecraft | Paper/Folia 1.21.7+，Spigot 1.21.6+ |
 | Java | Java 21+ |
 | 数据库 | SQLite 默认可用；也可使用 MySQL |
 | 可选插件 | AuthMe、PlaceholderAPI、Geyser-Spigot |

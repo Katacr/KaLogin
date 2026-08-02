@@ -1,15 +1,12 @@
 package org.katacr.kalogin
 
-import io.papermc.paper.registry.data.dialog.ActionButton
-import io.papermc.paper.registry.data.dialog.action.DialogAction
-import io.papermc.paper.registry.data.dialog.action.DialogActionCallback
-import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.katacr.kalogin.dialog.LoginResponse
+import org.katacr.kalogin.dialog.RegisterResponse
 import org.katacr.kalogin.listener.KaLoginAPI
-import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -49,7 +46,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             if (registered) {
                 // 已注册，检查玩家是否启用同IP自动登录
                 plugin.dbManager.canAutoLogin(player.uniqueId, currentIp).thenAccept { canAutoLogin ->
-                plugin.server.scheduler.runTask(plugin, Runnable {
+                KaLoginScheduler.runPlayer(player, Runnable {
                     if (canAutoLogin) {
                         // IP 相同且玩家启用了自动登录，自动登录
                         player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
@@ -72,7 +69,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 if (maxAccountsPerIp > 0) {
                     val registerTimeout = plugin.config.getInt("login.register-timeout", 90)
                     plugin.dbManager.countAccountsByIp(currentIp).thenAccept { count ->
-                        plugin.server.scheduler.runTask(plugin, Runnable {
+                        KaLoginScheduler.runPlayer(player, Runnable {
                             if (count >= maxAccountsPerIp) {
                                 player.kick(plugin.messageManager.getComponent("ip-limit.exceeded", "count" to maxAccountsPerIp))
                             } else {
@@ -86,7 +83,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 } else {
                     // 未启用限制，显示注册对话框
                     val registerTimeout = plugin.config.getInt("login.register-timeout", 90)
-                    plugin.server.scheduler.runTask(plugin, Runnable {
+                    KaLoginScheduler.runPlayer(player, Runnable {
                         showRegisterDialogDelayed(
                             player,
                             plugin.messageManager.getMessage("register.welcome", "seconds" to registerTimeout)
@@ -111,19 +108,19 @@ class LoginListener(private val plugin: KaLogin) : Listener {
 
         // 取消之前的超时任务（如果有）
         plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId]?.let { taskId ->
-            plugin.server.scheduler.cancelTask(taskId)
+            taskId.cancel()
             plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
         }
 
         // 启动登录超时任务
         val timeoutSeconds = plugin.config.getInt("login.login-timeout", 60)
-        val taskId = plugin.server.scheduler.runTaskLater(plugin, Runnable {
+        val taskId = KaLoginScheduler.runPlayerLater(player, timeoutSeconds * 20L, Runnable {
             if (player.isOnline) {
                 player.kick(plugin.messageManager.getComponent("login.timeout-kick", "seconds" to timeoutSeconds))
                 plugin.antiCheatManager.endAuthenticating(player)
             }
             plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
-        }, timeoutSeconds * 20L).taskId
+        })
         plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId] = taskId
 
 
@@ -136,30 +133,29 @@ class LoginListener(private val plugin: KaLogin) : Listener {
             return
         }
 
-        val loginAction = DialogAction.customClick(
-            DialogActionCallback { response, _ ->
-                val password = response.getText("login_password")
-                val autoLoginCheckbox = response.getBoolean("auto_login_by_ip") ?: false
+        val loginAction: (LoginResponse) -> Unit = loginAction@{ response ->
+                val password = response.password
+                val autoLoginCheckbox = response.autoLoginByIp
 
                 if (password.isNullOrBlank()) {
                     showLoginDialog(player, plugin.messageManager.getMessage("login.password-empty"))
-                    return@DialogActionCallback
+                    return@loginAction
                 }
 
                 // 异步验证密码
                 plugin.dbManager.verifyPassword(player.uniqueId, password).thenAccept { isValid: Boolean ->
-                        plugin.server.scheduler.runTask(plugin, Runnable {
+                        KaLoginScheduler.runPlayer(player, Runnable {
                             if (isValid) {
                                 // 取消登录超时任务
                                 plugin.antiCheatManager.loginTimeoutTasks[player.uniqueId]?.let { taskId ->
-                                    plugin.server.scheduler.cancelTask(taskId)
+                                    taskId.cancel()
                                     plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
                                 }
 
                                 val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
 
                                 plugin.antiCheatManager.markProgrammaticClose(player)
-                                player.closeDialog()
+                                plugin.dialogPlatform.close(player)
                                 player.sendMessage(plugin.messageManager.getComponent("login.success"))
                                 loggedInPlayers[player.uniqueId] = true
                                 loginAttempts.remove(player.uniqueId)
@@ -191,12 +187,10 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         }
                     })
                 }
-            },
-            ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
-        )
+            }
 
         plugin.dbManager.getPlayerEmail(player.uniqueId).thenAccept { email ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
                 plugin.antiCheatManager.markDialogOpened(player)
                 val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
@@ -205,18 +199,13 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 } else {
                     LoginUI.parseClickableText(plugin.messageManager.getMessage("login.recover-entry"), player)
                 }
-                val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("login.dialog-button"))
-                    .action(loginAction)
-                    .build()
-
-                val dialog = LoginUI.buildLoginDialog(
+                plugin.dialogPlatform.showLogin(
                     player,
                     plugin.messageManager.getComponent("login.dialog-title"),
                     description,
                     errorComponent,
-                    confirmButton
+                    loginAction
                 )
-                player.showDialog(dialog)
             })
         }
     }
@@ -228,11 +217,11 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     private fun showLoginDialogDelayed(player: Player) {
         val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
         if (delayTicks > 0) {
-            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, delayTicks, Runnable {
                 if (player.isOnline) {
                     showLoginDialog(player)
                 }
-            }, delayTicks)
+            })
         } else {
             showLoginDialog(player)
         }
@@ -245,11 +234,11 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     private fun showRegisterDialogDelayed(player: Player, description: String) {
         val delayTicks = plugin.config.getLong("login.dialog-delay-ticks", 0)
         if (delayTicks > 0) {
-            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, delayTicks, Runnable {
                 if (player.isOnline) {
                     showRegisterDialog(player, description)
                 }
-            }, delayTicks)
+            })
         } else {
             showRegisterDialog(player, description)
         }
@@ -270,47 +259,46 @@ class LoginListener(private val plugin: KaLogin) : Listener {
 
         // 取消之前的超时任务（如果有）
         plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
-            plugin.server.scheduler.cancelTask(taskId)
+            taskId.cancel()
             plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
         }
 
         // 启动注册超时任务
         val timeoutSeconds = plugin.config.getInt("login.register-timeout", 90)
-        val taskId = plugin.server.scheduler.runTaskLater(plugin, Runnable {
+        val taskId = KaLoginScheduler.runPlayerLater(player, timeoutSeconds * 20L, Runnable {
             if (player.isOnline) {
                 player.kick(plugin.messageManager.getComponent("register.timeout-kick", "seconds" to timeoutSeconds))
                 plugin.antiCheatManager.endAuthenticating(player)
             }
             plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
-        }, timeoutSeconds * 20L).taskId
+        })
         plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId] = taskId
 
-        val registerAction = DialogAction.customClick(
-            DialogActionCallback { response, _ ->
-                val password = response.getText("reg_password")
-                val confirmPassword = response.getText("reg_confirm_password")
+        val registerAction: (RegisterResponse) -> Unit = registerAction@{ response ->
+                val password = response.password
+                val confirmPassword = response.confirmPassword
 
                 if (password.isNullOrBlank()) {
                     showRegisterDialog(player, plugin.messageManager.getMessage("register.password-empty-retry"), plugin.messageManager.getMessage("register.password-empty"))
-                    return@DialogActionCallback
+                    return@registerAction
                 }
 
                 // 验证密码格式
                 val validationError = passwordValidator.validate(password)
                 if (validationError != null) {
                     showRegisterDialog(player, plugin.messageManager.getMessage("register.password-invalid", "error" to validationError), plugin.messageManager.getMessage("register.password-invalid", "error" to validationError))
-                    return@DialogActionCallback
+                    return@registerAction
                 }
 
                 // 验证两次密码是否一致
                 if (password != confirmPassword) {
                     showRegisterDialog(player, plugin.messageManager.getMessage("register.password-mismatch-retry"), plugin.messageManager.getMessage("register.password-mismatch"))
-                    return@DialogActionCallback
+                    return@registerAction
                 }
 
                 // 取消注册超时任务
                 plugin.antiCheatManager.registerTimeoutTasks[player.uniqueId]?.let { taskId ->
-                    plugin.server.scheduler.cancelTask(taskId)
+                    taskId.cancel()
                     plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
                 }
 
@@ -324,10 +312,10 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     player.address?.address?.hostAddress ?: "127.0.0.1"
                 ).thenAccept { success: Boolean ->
                     // 返回主线程给玩家发送反馈
-                    plugin.server.scheduler.runTask(plugin, Runnable {
+                    KaLoginScheduler.runPlayer(player, Runnable {
                         if (success) {
                             plugin.antiCheatManager.markProgrammaticClose(player)
-                            player.closeDialog()
+                            plugin.dialogPlatform.close(player)
                             player.sendMessage(plugin.messageManager.getComponent("register.success"))
                             // 标记玩家为已登录
                             loggedInPlayers[player.uniqueId] = true
@@ -345,24 +333,17 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         }
                     })
                 }
-            },
-            ClickCallback.Options.builder().lifetime(Duration.ofMinutes(5)).build()
-        )
+            }
 
         val errorComponent = plugin.resolveDialogErrorComponent(player, errorMessage)
-        val confirmButton = ActionButton.builder(plugin.messageManager.getComponent("register.dialog-button"))
-            .action(registerAction)
-            .build()
-
-        val dialog = LoginUI.buildRegisterDialog(
+        plugin.antiCheatManager.markDialogOpened(player)
+        plugin.dialogPlatform.showRegister(
             player,
             plugin.messageManager.getComponent("register.dialog-title"),
             null,  // welcomeMessage已移除，可在UI配置文件中自定义
             errorComponent,
-            confirmButton
+            registerAction
         )
-        plugin.antiCheatManager.markDialogOpened(player)
-        player.showDialog(dialog)
     }
 
 

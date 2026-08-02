@@ -314,7 +314,7 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor, TabC
         val target = args[1]
         if (target.equals("all", ignoreCase = true) || target.equals("*", ignoreCase = true)) {
             plugin.dbManager.resetAcceptedTermsForAll().thenAccept { updated ->
-                plugin.server.scheduler.runTask(plugin, Runnable {
+                KaLoginScheduler.runGlobal(Runnable {
                     plugin.messageManager.sendMessage(sender, "command.reset-terms.all-success", "count" to updated)
                 })
             }
@@ -328,7 +328,7 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor, TabC
         }
 
         plugin.dbManager.resetAcceptedTerms(offlinePlayer.uniqueId).thenAccept { success ->
-            plugin.server.scheduler.runTask(plugin, Runnable {
+            KaLoginScheduler.runGlobal(Runnable {
                 if (success) {
                     plugin.messageManager.sendMessage(sender, "command.reset-terms.success", "player" to target)
                 } else {

@@ -4,7 +4,7 @@ description: KaLogin - 面向 Paper 服务器的现代化登录、注册与账�
 
 # 首页
 
-**KaLogin** 是一款 Minecraft Paper 服务器登录插件，提供基于原生 Dialog 的登录、注册、修改密码、邮箱绑定、密码找回和欢迎条款确认体验。
+**KaLogin** 是一款 Minecraft 登录插件，支持 Paper、Folia 和 Spigot，提供基于原生 Dialog 的登录、注册、修改密码、邮箱绑定、密码找回和欢迎条款确认体验。
 
 插件可以单独作为账号系统使用，也可以配合 AuthMe 使用，让 AuthMe 负责账号数据与认证，KaLogin 负责更现代的界面与用户交互。
 

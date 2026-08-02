@@ -6,7 +6,7 @@ This page explains how to install KaLogin and complete the first usable setup.
 
 | Item | Requirement |
 |---|---|
-| Minecraft server | Paper 1.21.7 or newer |
+| Minecraft server | Paper/Folia 1.21.7 or newer, Spigot 1.21.6 or newer |
 | Java | Java 21 or newer |
 | Database | SQLite by default, MySQL optional |
 | Optional plugins | AuthMe, PlaceholderAPI, Geyser-Spigot |

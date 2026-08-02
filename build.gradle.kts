@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.katacr"
-version = "1.4.6"
+version = "1.5.0"
 
 repositories {
     maven("https://maven.aliyun.com/repository/central") {
@@ -29,6 +29,18 @@ repositories {
     maven("https://repo.codemc.org/repository/maven-public/") {
         name = "codemc-repo"
     }
+    maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") {
+        name = "spigot-snapshots"
+    }
+}
+
+val spigotAdapter by sourceSets.creating {
+    compileClasspath += sourceSets.main.get().output
+    runtimeClasspath += sourceSets.main.get().output
+}
+
+kotlin.sourceSets.named(spigotAdapter.name) {
+    kotlin.srcDir("src/spigot/kotlin")
 }
 
 dependencies {
@@ -36,6 +48,7 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.6")  // PAPI 可选依赖
     compileOnly("fr.xephi:authme:5.6.1-SNAPSHOT")  // AuthMe 可选依赖
     implementation("net.byteflux:libby-bukkit:1.3.0")
+    compileOnly("net.kyori:adventure-text-serializer-bungeecord:4.4.1")
 
     // 以下依赖在运行时通过 Libby 下载
     compileOnly("com.sun.mail:jakarta.mail:2.0.1")
@@ -43,6 +56,11 @@ dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib")
     compileOnly("org.mindrot:jbcrypt:0.4")
     compileOnly("org.xerial:sqlite-jdbc:3.46.1.0")
+
+    add(spigotAdapter.compileOnlyConfigurationName, "org.spigotmc:spigot-api:1.21.6-R0.1-SNAPSHOT")
+    add(spigotAdapter.compileOnlyConfigurationName, "net.kyori:adventure-text-serializer-bungeecord:4.4.1")
+    add(spigotAdapter.compileOnlyConfigurationName, "net.kyori:adventure-text-serializer-legacy:4.18.0")
+    add(spigotAdapter.compileOnlyConfigurationName, "org.jetbrains.kotlin:kotlin-stdlib")
 }
 
 tasks {
@@ -68,6 +86,8 @@ tasks {
     shadowJar {
         relocate("net.byteflux", project.group.toString() + ".libby")
         archiveClassifier.set("")
+        dependsOn(spigotAdapter.classesTaskName)
+        from(spigotAdapter.output)
     }
 }
 

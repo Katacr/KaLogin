@@ -11,6 +11,7 @@ Body:
   apple_item:
     type: 'item'
     material: 'apple'
+    amount: 1
     name: '&a&lServer Icon'
     description: '&fThis is the server icon description'
     # item_model parameter (1.21.7+ custom item model)
@@ -20,6 +21,10 @@ Body:
     #   item_model: 'myplugin:custom_sword'  # Use a custom plugin item model
     #   item_model: ''                       # No custom model (default)
     item_model: 'minecraft:diamond'
+    show_overlays: false
+    show_tooltip: true
+    width: 16
+    height: 16
 
   # Instruction message
   intro:

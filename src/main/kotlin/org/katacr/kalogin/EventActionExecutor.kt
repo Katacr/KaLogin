@@ -60,9 +60,9 @@ class EventActionExecutor(private val plugin: KaLogin) {
                     return
                 }
 
-                plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                KaLoginScheduler.runPlayerLater(player, delay, Runnable {
                     executeActionsSequentially(player, eventType, actions, index + 1)
-                }, delay)
+                })
             }
 
             "command", "console" -> {
@@ -166,12 +166,12 @@ class EventActionExecutor(private val plugin: KaLogin) {
             val progress = player.getAdvancementProgress(advancement)
             progress.awardCriteria("impossible")
 
-            Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+            KaLoginScheduler.runPlayerLater(player, 10L, Runnable {
                 if (player.isOnline) {
                     progress.revokeCriteria("impossible")
                 }
                 Bukkit.getUnsafe().removeAdvancement(randomKey)
-            }, 10L)
+            })
         } catch (e: Exception) {
             plugin.logger.warning("Failed to send toast action to ${player.name}: ${e.message}")
         }

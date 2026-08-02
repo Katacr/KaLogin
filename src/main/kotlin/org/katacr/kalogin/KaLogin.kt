@@ -8,6 +8,8 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.plugin.java.JavaPlugin
+import org.katacr.kalogin.dialog.LoginDialogPlatform
+import org.katacr.kalogin.dialog.LoginDialogPlatformLoader
 import org.katacr.kalogin.listener.KaLoginAPI
 import java.io.File
 
@@ -21,6 +23,7 @@ class KaLogin : JavaPlugin() {
     lateinit var eventActionExecutor: EventActionExecutor
     lateinit var emailBindManager: EmailBindManager
     lateinit var welcomeManager: WelcomeManager
+    lateinit var dialogPlatform: LoginDialogPlatform
     private var placeholderExpansion: KaLoginPlaceholderExpansion? = null
     var authMeLoginListener: AuthMeLoginListener? = null
 
@@ -81,6 +84,13 @@ class KaLogin : JavaPlugin() {
             .version("2.0.1")
             .build()
 
+        // 6. Spigot Dialog 适配需要的 Adventure/Bungee 组件转换器
+        val adventureBungeeSerializer = Library.builder()
+            .groupId("net{}kyori")
+            .artifactId("adventure-text-serializer-bungeecord")
+            .version("4.4.1")
+            .build()
+
         logger.info("Checking and downloading necessary dependent libraries, please wait...")
 
         libraryManager.loadLibrary(kotlinStd)
@@ -88,9 +98,12 @@ class KaLogin : JavaPlugin() {
         libraryManager.loadLibrary(sqlite)
         libraryManager.loadLibrary(jakartaActivation)
         libraryManager.loadLibrary(jakartaMail)
+        libraryManager.loadLibrary(adventureBungeeSerializer)
     }
 
     override fun onEnable() {
+        KaLoginScheduler.init(this)
+
         // 初始化消息管理器（需要在配置更新前初始化，因为 ConfigUpdater 需要它）
         messageManager = MessageManager(this)
         messageManager.init()
@@ -116,6 +129,8 @@ class KaLogin : JavaPlugin() {
 
         // 初始化UI构建器
         LoginUI.init(this)
+        dialogPlatform = LoginDialogPlatformLoader.load(this)
+        logger.info("Using ${dialogPlatform.platformName} Dialog platform")
 
         // 初始化 Geyser/Floodgate 兼容层
         GeyserCompat.init(this)
@@ -239,6 +254,10 @@ class KaLogin : JavaPlugin() {
     }
 
     override fun onDisable() {
+        if (::dialogPlatform.isInitialized) {
+            dialogPlatform.shutdown()
+        }
+        KaLoginScheduler.cancelPluginTasks()
         dbManager.close()
         antiCheatManager.clearAll()
         authMeLoginListener = null
