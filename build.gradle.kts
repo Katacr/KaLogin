@@ -48,6 +48,9 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.6")  // PAPI 可选依赖
     compileOnly("fr.xephi:authme:5.6.1-SNAPSHOT")  // AuthMe 可选依赖
     implementation("net.byteflux:libby-bukkit:1.3.0")
+    compileOnly("net.kyori:adventure-text-minimessage:4.26.1")
+    compileOnly("net.kyori:adventure-text-serializer-legacy:4.26.1")
+    compileOnly("net.kyori:adventure-text-serializer-gson:4.26.1")
     compileOnly("net.kyori:adventure-text-serializer-bungeecord:4.4.1")
 
     // 以下依赖在运行时通过 Libby 下载
@@ -59,7 +62,7 @@ dependencies {
 
     add(spigotAdapter.compileOnlyConfigurationName, "org.spigotmc:spigot-api:1.21.6-R0.1-SNAPSHOT")
     add(spigotAdapter.compileOnlyConfigurationName, "net.kyori:adventure-text-serializer-bungeecord:4.4.1")
-    add(spigotAdapter.compileOnlyConfigurationName, "net.kyori:adventure-text-serializer-legacy:4.18.0")
+    add(spigotAdapter.compileOnlyConfigurationName, "net.kyori:adventure-text-serializer-legacy:4.26.1")
     add(spigotAdapter.compileOnlyConfigurationName, "org.jetbrains.kotlin:kotlin-stdlib")
 }
 
