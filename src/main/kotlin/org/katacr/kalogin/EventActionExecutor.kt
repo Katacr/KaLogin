@@ -7,6 +7,7 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
 import org.bukkit.entity.Player
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 执行登录/注册成功后的配置动作。
@@ -15,12 +16,21 @@ import org.bukkit.entity.Player
  * - wait: <等待 tick>
  * - command: <玩家执行的指令>
  * - console: <控制台执行的指令>
+ * - tell: <发送给玩家的消息>
  * - toast: <Toast 通知参数>
  */
 class EventActionExecutor(private val plugin: KaLogin) {
 
+    private val unsupportedToastWarningLogged = AtomicBoolean(false)
+
     fun sendToast(player: Player, args: String) {
         if (!player.isOnline) {
+            return
+        }
+        if (!plugin.dialogPlatform.supportsToast) {
+            if (unsupportedToastWarningLogged.compareAndSet(false, true)) {
+                plugin.logger.warning("Toast actions are not supported on ${plugin.dialogPlatform.platformName}; the action was skipped")
+            }
             return
         }
         parseAndSendToast(player, args)
@@ -65,7 +75,7 @@ class EventActionExecutor(private val plugin: KaLogin) {
                 })
             }
 
-            "command", "console" -> {
+            "command" -> {
                 val command = resolvePlaceholders(player, actionValue).removePrefix("/")
                 if (command.isBlank()) {
                     plugin.logger.warning("Empty event action command in events.$eventType: $rawAction")
@@ -73,15 +83,43 @@ class EventActionExecutor(private val plugin: KaLogin) {
                     return
                 }
 
-                when (actionType) {
-                    "command" -> {
-                        if (!player.isOnline) {
-                            plugin.logger.warning("Skipped player command because player ${player.name} is offline: $rawAction")
-                        } else {
-                            player.performCommand(command)
-                        }
+                if (!player.isOnline) {
+                    plugin.logger.warning("Skipped player command because player ${player.name} is offline: $rawAction")
+                } else {
+                    player.performCommand(command)
+                }
+
+                executeActionsSequentially(player, eventType, actions, index + 1)
+            }
+
+            "console" -> {
+                val command = resolvePlaceholders(player, actionValue).removePrefix("/")
+                if (command.isBlank()) {
+                    plugin.logger.warning("Empty event action command in events.$eventType: $rawAction")
+                    executeActionsSequentially(player, eventType, actions, index + 1)
+                    return
+                }
+
+                KaLoginScheduler.runGlobal(Runnable {
+                    plugin.server.dispatchCommand(plugin.server.consoleSender, command)
+
+                    val nextAction = Runnable {
+                        executeActionsSequentially(player, eventType, actions, index + 1)
                     }
-                    "console" -> plugin.server.dispatchCommand(plugin.server.consoleSender, command)
+                    if (KaLoginScheduler.folia && player.isOnline) {
+                        KaLoginScheduler.runPlayer(player, nextAction)
+                    } else {
+                        nextAction.run()
+                    }
+                })
+            }
+
+            "tell" -> {
+                if (!player.isOnline) {
+                    plugin.logger.warning("Skipped tell action because player ${player.name} is offline: $rawAction")
+                } else {
+                    val message = resolvePlaceholders(player, actionValue)
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponentFromMessage(message))
                 }
 
                 executeActionsSequentially(player, eventType, actions, index + 1)

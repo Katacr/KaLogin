@@ -94,13 +94,13 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
                 }
 
                 changePasswordAttempts.remove(player.name)
-                player.sendMessage(plugin.messageManager.getComponent("change-password.saving"))
+                plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.saving"))
 
                 if (plugin.authMeManager.useAuthMe) {
                     plugin.authMeManager.changePassword(player.name, newPassword)
                     KaLoginScheduler.runPlayer(player, Runnable {
                         plugin.dialogPlatform.close(player)
-                        player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
+                        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.success"))
                         KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
                     })
                 } else {
@@ -108,10 +108,10 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
                         KaLoginScheduler.runPlayer(player, Runnable {
                             if (success) {
                                 plugin.dialogPlatform.close(player)
-                                player.sendMessage(plugin.messageManager.getComponent("change-password.success"))
+                                plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.success"))
                                 KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
                             } else {
-                                player.sendMessage(plugin.messageManager.getComponent("change-password.failed"))
+                                plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.failed"))
                                 KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Database error")
                             }
                         })
@@ -136,7 +136,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
         val maxAttempts = plugin.config.getInt("change-password.max-attempts", 3)
 
         if (currentAttempts >= maxAttempts) {
-            player.sendMessage(plugin.messageManager.getComponent("change-password.too-many-attempts"))
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.too-many-attempts"))
             changePasswordAttempts.remove(player.name)
             KaLoginAPI.getInstance()?.callPlayerChangePasswordFailed(player, "Too many attempts")
             return

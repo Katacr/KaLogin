@@ -151,7 +151,7 @@ error-prompt-type: "body"
 |---|---|
 | `none` | 不显示错误提示 |
 | `body` | 在界面正文中显示错误 |
-| `toast` | 使用 Toast 提示 |
+| `toast` | 使用 Toast 提示；Spigot 自动回退为正文提示 |
 
 ## 输入框设置
 
@@ -222,12 +222,12 @@ email-binding:
 events:
   login:
     - 'console: say 玩家%player_name%已登录!'
-    - 'toast: type=task;icon=paper;title=<green>登录成功;description=<gray>欢迎回来, %player_name%'
+    - 'tell: <green>登录成功 <gray>欢迎回来, %player_name%'
     - 'wait: 20'
     - 'command: spawn'
   register:
     - 'console: say 玩家%player_name%已注册!'
-    - 'toast: type=goal;icon=emerald;title=<aqua>注册成功;description=<gray>欢迎加入服务器, %player_name%'
+    - 'tell: <aqua>注册成功 <gray>欢迎加入服务器, %player_name%'
     - 'wait: 20'
     - 'command: help'
 ```

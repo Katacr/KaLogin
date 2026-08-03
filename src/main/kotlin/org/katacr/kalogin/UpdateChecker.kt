@@ -107,7 +107,7 @@ object UpdateChecker {
             .replace("&a[MineBBS]", "<text=&a[MineBBS];hover=$minebbsHover;url=$MINEBBS_URL>")
             .replace("&b[SpigotMC]", "<text=&b[SpigotMC];hover=$spigotmcHover;url=$SPIGOTMC_URL>")
 
-        player.sendMessage(LoginUI.parseClickableText(processed, player))
+        messageManager?.sendComponent(player, LoginUI.parseClickableText(processed, player))
     }
 
     /**

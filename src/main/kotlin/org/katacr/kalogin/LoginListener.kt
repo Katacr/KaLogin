@@ -49,7 +49,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 KaLoginScheduler.runPlayer(player, Runnable {
                     if (canAutoLogin) {
                         // IP 相同且玩家启用了自动登录，自动登录
-                        player.sendMessage(plugin.messageManager.getComponent("login.auto-login-success"))
+                        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("login.auto-login-success"))
                         loggedInPlayers[player.uniqueId] = true
                         plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
                         plugin.welcomeManager.showWelcomeIfNeeded(player) {
@@ -71,7 +71,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     plugin.dbManager.countAccountsByIp(currentIp).thenAccept { count ->
                         KaLoginScheduler.runPlayer(player, Runnable {
                             if (count >= maxAccountsPerIp) {
-                                player.kick(plugin.messageManager.getComponent("ip-limit.exceeded", "count" to maxAccountsPerIp))
+                                plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("ip-limit.exceeded", "count" to maxAccountsPerIp))
                             } else {
                                 showRegisterDialogDelayed(
                                     player,
@@ -116,7 +116,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         val timeoutSeconds = plugin.config.getInt("login.login-timeout", 60)
         val taskId = KaLoginScheduler.runPlayerLater(player, timeoutSeconds * 20L, Runnable {
             if (player.isOnline) {
-                player.kick(plugin.messageManager.getComponent("login.timeout-kick", "seconds" to timeoutSeconds))
+                plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("login.timeout-kick", "seconds" to timeoutSeconds))
                 plugin.antiCheatManager.endAuthenticating(player)
             }
             plugin.antiCheatManager.loginTimeoutTasks.remove(player.uniqueId)
@@ -128,7 +128,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         val attemptsLeft = maxAttempts - (loginAttempts[player.uniqueId] ?: 0)
 
         if (attemptsLeft <= 0) {
-            player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
+            plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("login.too-many-attempts"))
             plugin.antiCheatManager.endAuthenticating(player)
             return
         }
@@ -156,7 +156,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
 
                                 plugin.antiCheatManager.markProgrammaticClose(player)
                                 plugin.dialogPlatform.close(player)
-                                player.sendMessage(plugin.messageManager.getComponent("login.success"))
+                                plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("login.success"))
                                 loggedInPlayers[player.uniqueId] = true
                                 loginAttempts.remove(player.uniqueId)
                                 // 更新最后登录 IP
@@ -179,7 +179,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, remainingAttempts)
                                 showLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to remainingAttempts))
                             } else {
-                                player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
+                                plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("login.too-many-attempts"))
                                 plugin.antiCheatManager.endAuthenticating(player)
                                 // 触发登录失败事件（剩余次数为0）
                                 KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, 0)
@@ -267,7 +267,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         val timeoutSeconds = plugin.config.getInt("login.register-timeout", 90)
         val taskId = KaLoginScheduler.runPlayerLater(player, timeoutSeconds * 20L, Runnable {
             if (player.isOnline) {
-                player.kick(plugin.messageManager.getComponent("register.timeout-kick", "seconds" to timeoutSeconds))
+                plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("register.timeout-kick", "seconds" to timeoutSeconds))
                 plugin.antiCheatManager.endAuthenticating(player)
             }
             plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
@@ -302,7 +302,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     plugin.antiCheatManager.registerTimeoutTasks.remove(player.uniqueId)
                 }
 
-                player.sendMessage(plugin.messageManager.getComponent("register.saving"))
+                plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.saving"))
 
                 // 异步执行注册
                 plugin.dbManager.registerPlayer(
@@ -316,7 +316,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         if (success) {
                             plugin.antiCheatManager.markProgrammaticClose(player)
                             plugin.dialogPlatform.close(player)
-                            player.sendMessage(plugin.messageManager.getComponent("register.success"))
+                            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.success"))
                             // 标记玩家为已登录
                             loggedInPlayers[player.uniqueId] = true
                             val ip = player.address?.address?.hostAddress ?: "127.0.0.1"
@@ -327,7 +327,7 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, ip)
                             }
                         } else {
-                            player.sendMessage(plugin.messageManager.getComponent("register.failed"))
+                            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.failed"))
                             // 触发注册失败事件
                             KaLoginAPI.getInstance()?.callPlayerRegisterFailed(player, "Database error")
                         }

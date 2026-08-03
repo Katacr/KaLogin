@@ -42,7 +42,7 @@ class LogoutCommand(private val plugin: KaLogin) : CommandExecutor, TabCompleter
 
         // 4. 踢出玩家并显示消息
         val kickMessage = plugin.messageManager.getComponent("logout.kick-message")
-        sender.kick(kickMessage)
+        plugin.messageManager.kickPlayer(sender, kickMessage)
 
         return true
     }

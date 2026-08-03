@@ -319,8 +319,12 @@ class KaLogin : JavaPlugin() {
         return if (promptType == ERROR_PROMPT_NONE) {
             null
         } else if (promptType == ERROR_PROMPT_TOAST) {
-            showErrorToast(player, errorMessage)
-            null
+            if (dialogPlatform.supportsToast) {
+                showErrorToast(player, errorMessage)
+                null
+            } else {
+                messageManager.getComponentFromMessage(errorMessage)
+            }
         } else {
             messageManager.getComponentFromMessage(errorMessage)
         }

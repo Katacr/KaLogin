@@ -1,6 +1,7 @@
 package org.katacr.kalogin.dialog
 
 import net.kyori.adventure.text.Component
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.katacr.kalogin.KaLogin
 
@@ -11,6 +12,9 @@ import org.katacr.kalogin.KaLogin
  */
 interface LoginDialogPlatform {
     val platformName: String
+
+    /** 当前平台是否支持原生 Toast 通知。 */
+    val supportsToast: Boolean
 
     fun initialize(plugin: KaLogin)
 
@@ -84,6 +88,12 @@ interface LoginDialogPlatform {
     )
 
     fun close(player: Player)
+
+    /** 使用当前平台可用的文本协议发送 Adventure 组件。 */
+    fun sendMessage(sender: CommandSender, message: Component)
+
+    /** 使用当前平台可用的 API 踢出玩家并显示组件消息。 */
+    fun kick(player: Player, message: Component)
 
     fun shutdown()
 }

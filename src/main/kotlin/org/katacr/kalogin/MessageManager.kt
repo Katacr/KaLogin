@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.bukkit.ChatColor
+import org.bukkit.command.CommandSender
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
@@ -201,13 +202,13 @@ class MessageManager(private val plugin: KaLogin) {
         } else {
             miniMessage.deserialize(message)
         }
-        player.sendMessage(component)
+        sendComponent(player, component)
     }
 
     /**
      * 给命令发送者发送消息（支持 &/§ 颜色代码）
      */
-    fun sendMessage(sender: org.bukkit.command.CommandSender, key: String, vararg args: Pair<String, Any>) {
+    fun sendMessage(sender: CommandSender, key: String, vararg args: Pair<String, Any>) {
         val locale = defaultLanguage // 控制台和命令默认使用配置语言
         val message = getMessage(key, *args, locale = locale)
 
@@ -217,7 +218,17 @@ class MessageManager(private val plugin: KaLogin) {
         } else {
             miniMessage.deserialize(message)
         }
-        sender.sendMessage(component)
+        sendComponent(sender, component)
+    }
+
+    /** 使用当前服务器平台支持的协议发送 Adventure 文本。 */
+    fun sendComponent(sender: CommandSender, component: Component) {
+        plugin.dialogPlatform.sendMessage(sender, component)
+    }
+
+    /** 使用当前服务器平台支持的 API 踢出玩家。 */
+    fun kickPlayer(player: Player, component: Component) {
+        plugin.dialogPlatform.kick(player, component)
     }
 
     /**

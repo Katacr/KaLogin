@@ -234,7 +234,7 @@ class KaLoginAPI private constructor() {
 
         // 4. 踢出玩家
         val message = kickMessage ?: plugin.messageManager.getComponent("logout.kick-message")
-        player.kick(message)
+        plugin.messageManager.kickPlayer(player, message)
     }
 
     /**

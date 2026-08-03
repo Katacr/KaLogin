@@ -15,6 +15,7 @@ import io.papermc.paper.registry.data.dialog.type.DialogType
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.NamespacedKey
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.katacr.kalogin.DialogBodyElement
@@ -37,6 +38,7 @@ import java.time.Duration
  */
 class PaperLoginDialogPlatform : LoginDialogPlatform {
     override val platformName: String = "Paper"
+    override val supportsToast: Boolean = true
     private lateinit var plugin: KaLogin
 
     override fun initialize(plugin: KaLogin) {
@@ -264,6 +266,14 @@ class PaperLoginDialogPlatform : LoginDialogPlatform {
 
     override fun close(player: Player) {
         runPlayer(player) { player.closeDialog() }
+    }
+
+    override fun sendMessage(sender: CommandSender, message: Component) {
+        sender.sendMessage(message)
+    }
+
+    override fun kick(player: Player, message: Component) {
+        player.kick(message)
     }
 
     override fun shutdown() = Unit

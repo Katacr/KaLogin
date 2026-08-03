@@ -62,7 +62,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
                     // 如果玩家在线，踢出玩家
                     val onlinePlayer = Bukkit.getPlayerExact(playerName)
                     if (onlinePlayer != null && onlinePlayer.isOnline) {
-                        onlinePlayer.kick(plugin.messageManager.getComponent("command.delete.kicked"))
+                        plugin.messageManager.kickPlayer(onlinePlayer, plugin.messageManager.getComponent("command.delete.kicked"))
                     }
                 } else {
                     plugin.messageManager.sendMessage(sender, "command.delete.failed")

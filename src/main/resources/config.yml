@@ -85,7 +85,7 @@ welcome-dialog:
 # 对话框错误提示显示方式：none / body / toast
 # none  = 不显示任何错误提示
 # body  = 在对话框 Body 中显示错误提示（当前默认行为）
-# toast = 使用 Toast 弹出错误提示，不改动对话框布局
+# toast = 使用 Toast 弹出错误提示；Spigot 会自动回退为 Body 提示
 error-prompt-type: "body"
 
 # 输入框自定义属性
@@ -188,11 +188,11 @@ email-binding:
 events:
   login:
     - 'console: say 玩家%player_name%已登录!' # 控制台指令
-    - 'toast: type=task;icon=paper;title=<green>登录成功;description=<gray>欢迎回来, %player_name%'
+    - 'tell: <green>登录成功 <gray>欢迎回来, %player_name%' # 玩家消息
     - 'wait: 20' # 等待 20 tick 后继续执行后续动作
     - 'command: spawn' # 玩家指令
   register:
     - 'console: say 玩家%player_name%已注册!' # 控制台指令
-    - 'toast: type=goal;icon=emerald;title=<aqua>注册成功;description=<gray>欢迎加入服务器, %player_name%'
+    - 'tell: <aqua>注册成功 <gray>欢迎加入服务器, %player_name%' # 玩家消息
     - 'wait: 20' # 等待 20 tick 后继续执行后续动作
     - 'command: help' # 玩家指令

@@ -1,6 +1,6 @@
 # Login and Registration Actions
 
-KaLogin can run actions after a player logs in or registers, such as sending prompts, running commands, or showing Toast notifications.
+KaLogin can send messages, run commands, or delay subsequent actions after a player logs in or registers.
 
 ## Configuration location
 
@@ -8,12 +8,12 @@ KaLogin can run actions after a player logs in or registers, such as sending pro
 events:
   login:
     - 'console: say Player %player_name% logged in!'
-    - 'toast: type=task;icon=paper;title=<green>Login successful;description=<gray>Welcome back, %player_name%'
+    - 'tell: <green>Login successful <gray>Welcome back, %player_name%'
     - 'wait: 20'
     - 'command: spawn'
   register:
     - 'console: say Player %player_name% registered!'
-    - 'toast: type=goal;icon=emerald;title=<aqua>Registration successful;description=<gray>Welcome, %player_name%'
+    - 'tell: <aqua>Registration successful <gray>Welcome, %player_name%'
     - 'wait: 20'
     - 'command: help'
 ```
@@ -24,8 +24,11 @@ events:
 |---|---|
 | `console: <command>` | Run a command as console |
 | `command: <command>` | Run a command as the player |
-| `toast: ...` | Show a Toast notification |
+| `tell: <message>` | Send a message to the player with color and MiniMessage support |
+| `toast: ...` | Show a Toast notification on Paper/Folia only |
 | `wait: <ticks>` | Wait before continuing |
+
+Spigot does not support Toast actions. KaLogin skips the action and logs one console warning; use `tell:` when the configuration must work on every supported platform.
 
 ## Toast parameters
 
@@ -47,7 +50,7 @@ Use `%player_name%` for the player name.
 ```yaml
 events:
   login:
-    - 'console: tell %player_name% Welcome back'
+    - 'tell: <green>Welcome back, %player_name%'
 ```
 
 If PlaceholderAPI is installed, PAPI placeholders can also be used in action text.

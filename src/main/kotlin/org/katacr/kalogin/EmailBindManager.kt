@@ -38,7 +38,7 @@ class EmailBindManager(private val plugin: KaLogin) {
             if (!shouldShow) return@thenAccept
             KaLoginScheduler.runPlayer(player, Runnable {
                 if (!player.isOnline) return@Runnable
-                player.sendMessage(LoginUI.parseClickableText(plugin.messageManager.getMessage("bind-email.prompt-message"), player))
+                plugin.messageManager.sendComponent(player, LoginUI.parseClickableText(plugin.messageManager.getMessage("bind-email.prompt-message"), player))
             })
         }
     }
@@ -47,9 +47,9 @@ class EmailBindManager(private val plugin: KaLogin) {
         plugin.dbManager.updateBindEmailPrompt(player.uniqueId, false).thenAccept { success ->
             KaLoginScheduler.runPlayer(player, Runnable {
                 if (success) {
-                    player.sendMessage(plugin.messageManager.getComponent("bind-email.prompt-disabled"))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.prompt-disabled"))
                 } else {
-                    player.sendMessage(plugin.messageManager.getComponent("bind-email.save-failed"))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.save-failed"))
                 }
             })
         }
@@ -57,7 +57,7 @@ class EmailBindManager(private val plugin: KaLogin) {
 
     fun openBindDialog(player: Player, errorMessage: String? = null) {
         if (!plugin.config.getBoolean("email-binding.enabled", true)) {
-            player.sendMessage(plugin.messageManager.getComponent("bind-email.disabled"))
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.disabled"))
             return
         }
 
@@ -131,7 +131,7 @@ class EmailBindManager(private val plugin: KaLogin) {
 
     fun openRecoverPasswordDialog(player: Player, errorMessage: String? = null) {
         if (!plugin.config.getBoolean("email-binding.enabled", true)) {
-            player.sendMessage(plugin.messageManager.getComponent("bind-email.disabled"))
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.disabled"))
             return
         }
 
@@ -140,7 +140,7 @@ class EmailBindManager(private val plugin: KaLogin) {
                 if (!player.isOnline) return@Runnable
 
                 if (email.isNullOrBlank()) {
-                    player.sendMessage(plugin.messageManager.getComponent("recover-password.no-bound-email"))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.no-bound-email"))
                     return@Runnable
                 }
 
@@ -192,12 +192,12 @@ class EmailBindManager(private val plugin: KaLogin) {
 
     private fun sendVerificationCode(player: Player, email: String, type: EmailActionType) {
         if (!plugin.config.getBoolean("email-binding.enabled", true)) {
-            player.sendMessage(plugin.messageManager.getComponent("bind-email.disabled"))
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.disabled"))
             return
         }
 
         if (!isSmtpConfigured()) {
-            player.sendMessage(plugin.messageManager.getComponent("bind-email.smtp-not-configured"))
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.smtp-not-configured"))
             return
         }
 
@@ -215,15 +215,15 @@ class EmailBindManager(private val plugin: KaLogin) {
                     when (type) {
                         EmailActionType.BIND -> {
                             openBindDialog(player)
-                            player.sendMessage(plugin.messageManager.getComponent("bind-email.code-sent", "email" to maskEmail(email)))
+                            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.code-sent", "email" to maskEmail(email)))
                         }
                         EmailActionType.UNBIND -> {
                             openBindDialog(player)
-                            player.sendMessage(plugin.messageManager.getComponent("bind-email.unbind-code-sent", "email" to maskEmail(email)))
+                            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.unbind-code-sent", "email" to maskEmail(email)))
                         }
                         EmailActionType.RECOVER_PASSWORD -> {
                             openRecoverPasswordDialog(player)
-                            player.sendMessage(plugin.messageManager.getComponent("recover-password.code-sent", "email" to maskEmail(email)))
+                            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.code-sent", "email" to maskEmail(email)))
                         }
                     }
                 } else {
@@ -231,7 +231,7 @@ class EmailBindManager(private val plugin: KaLogin) {
                     plugin.logger.severe("[EmailBind] Failed to send verification email to $email for player=${player.name}: ${ex?.javaClass?.name}: ${ex?.message}")
                     ex?.printStackTrace()
                     val key = if (type == EmailActionType.RECOVER_PASSWORD) "recover-password.send-failed" else "bind-email.send-failed"
-                    player.sendMessage(plugin.messageManager.getComponent(key))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent(key))
                 }
             })
         })
@@ -266,12 +266,12 @@ class EmailBindManager(private val plugin: KaLogin) {
                 if (success) {
                     pendingCodes.remove(player.uniqueId)
                     if (pending.type == EmailActionType.BIND) {
-                        player.sendMessage(plugin.messageManager.getComponent("bind-email.bind-success", "email" to pending.email))
+                        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.bind-success", "email" to pending.email))
                     } else {
-                        player.sendMessage(plugin.messageManager.getComponent("bind-email.unbind-success"))
+                        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.unbind-success"))
                     }
                 } else {
-                    player.sendMessage(plugin.messageManager.getComponent("bind-email.save-failed"))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("bind-email.save-failed"))
                 }
             })
         }
@@ -311,7 +311,7 @@ class EmailBindManager(private val plugin: KaLogin) {
             return
         }
 
-        player.sendMessage(plugin.messageManager.getComponent("recover-password.saving"))
+        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.saving"))
         val task = if (plugin.authMeManager.useAuthMe) {
             java.util.concurrent.CompletableFuture.supplyAsync {
                 runCatching {
@@ -327,9 +327,9 @@ class EmailBindManager(private val plugin: KaLogin) {
             KaLoginScheduler.runPlayer(player, Runnable {
                 if (success) {
                     pendingCodes.remove(player.uniqueId)
-                    player.sendMessage(plugin.messageManager.getComponent("recover-password.success"))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.success"))
                 } else {
-                    player.sendMessage(plugin.messageManager.getComponent("recover-password.failed"))
+                    plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.failed"))
                 }
             })
         }

@@ -10,6 +10,6 @@ This section explains the main user facing features in KaLogin.
 | [UI Customization](ui.md) | Edit login, registration, password change, and welcome screens |
 | [Email Binding and Password Recovery](email.md) | Configure email codes and password recovery |
 | [Welcome and Terms](welcome.md) | Ask first time players to accept server terms |
-| [Login and Registration Actions](actions.md) | Run commands, Toasts, and delays after login or registration |
+| [Login and Registration Actions](actions.md) | Send messages, run commands, or delay actions after login or registration |
 
 If this is your first installation, read [Getting Started](../home/start.md) first.

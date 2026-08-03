@@ -151,7 +151,7 @@ error-prompt-type: "body"
 |---|---|
 | `none` | Do not show error prompts |
 | `body` | Show errors inside the screen body |
-| `toast` | Show errors as Toast prompts |
+| `toast` | Show errors as Toast prompts; Spigot falls back to body text |
 
 ## Input settings
 
@@ -222,12 +222,12 @@ See [Email Binding and Password Recovery](../features/email.md).
 events:
   login:
     - 'console: say Player %player_name% logged in!'
-    - 'toast: type=task;icon=paper;title=<green>Login successful;description=<gray>Welcome back, %player_name%'
+    - 'tell: <green>Login successful <gray>Welcome back, %player_name%'
     - 'wait: 20'
     - 'command: spawn'
   register:
     - 'console: say Player %player_name% registered!'
-    - 'toast: type=goal;icon=emerald;title=<aqua>Registration successful;description=<gray>Welcome, %player_name%'
+    - 'tell: <aqua>Registration successful <gray>Welcome, %player_name%'
     - 'wait: 20'
     - 'command: help'
 ```

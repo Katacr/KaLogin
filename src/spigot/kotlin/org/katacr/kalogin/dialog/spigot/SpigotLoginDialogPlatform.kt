@@ -20,6 +20,7 @@ import net.md_5.bungee.api.dialog.input.BooleanInput
 import net.md_5.bungee.api.dialog.input.DialogInput
 import net.md_5.bungee.api.dialog.input.TextInput
 import org.bukkit.NamespacedKey
+import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -46,6 +47,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
     override val platformName: String = "Spigot"
+    override val supportsToast: Boolean = false
     private lateinit var plugin: KaLogin
     private val callbacks = ConcurrentHashMap<String, CallbackSession>()
     private val playerCallbacks = ConcurrentHashMap<UUID, MutableSet<String>>()
@@ -78,7 +80,7 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
             inputs.add(BooleanInput("auto_login_by_ip", text(plugin.messageManager.getComponent("login.auto-login-checkbox")), LoginUI.boolInitial("inputs.login.auto_login_by_ip"), "true", "false"))
         }
         val action = registerCallback(player, inputKeys(inputs)) {
-            onSubmit(LoginResponse(it["login_password"], it["auto_login_by_ip"].toBoolean()))
+            onSubmit(LoginResponse(it["login_password"], parseBooleanInput(it["auto_login_by_ip"])))
         }
         player.showDialog(noticeDialog(title, body("login", player, description, error), inputs, button(plugin.messageManager.getComponent("login.dialog-button"), action), authDialog = true))
     }
@@ -179,7 +181,7 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
                 BooleanInput("welcome_accept_terms", text(plugin.messageManager.getComponent("welcome.accept-checkbox")), LoginUI.boolInitial("inputs.welcome.accept_terms"), "true", "false")
             )
             val confirm = registerCallback(player, inputKeys(inputs)) {
-                onSubmit(WelcomeResponse(it["welcome_accept_terms"].toBoolean()))
+                onSubmit(WelcomeResponse(parseBooleanInput(it["welcome_accept_terms"])))
             }
             player.showDialog(noticeDialog(title, body("welcome", player, null, error), inputs, button(plugin.messageManager.getComponent("welcome.confirm-button"), confirm), authDialog = true))
         }
@@ -200,7 +202,7 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
         val close = registerCallback(player, emptySet()) { onClose() }
         player.showDialog(
             MultiActionDialog(
-                base(title, body.map { PlainMessageBody(text(it), -1) }, emptyList(), canClose = true),
+                base(title, body.map { plainMessage(it) }, emptyList(), canClose = true),
                 listOf(button(emailButtonLabel, email), button(changePasswordButtonLabel, changePassword)),
                 2,
                 button(closeButtonLabel, close)
@@ -213,6 +215,15 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
             clearCallbacks(player.uniqueId)
             player.clearDialog()
         }
+    }
+
+    override fun sendMessage(sender: CommandSender, message: Component) {
+        sender.spigot().sendMessage(*BungeeComponentSerializer.get().serialize(message))
+    }
+
+    override fun kick(player: Player, message: Component) {
+        val legacyMessage = BaseComponent.toLegacyText(*BungeeComponentSerializer.get().serialize(message))
+        player.kickPlayer(legacyMessage)
     }
 
     override fun shutdown() {
@@ -257,12 +268,12 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
         buildList {
             LoginUI.bodyElements(player, fileName).forEach { element ->
                 when (element) {
-                    is DialogBodyElement.Message -> add(PlainMessageBody(text(element.text), element.width))
+                    is DialogBodyElement.Message -> add(plainMessage(element.text, element.width))
                     is DialogBodyElement.Item -> addItemBody(fileName, element, player)
                 }
             }
-            description?.let { add(PlainMessageBody(text(it), -1)) }
-            error?.let { add(PlainMessageBody(text(it), -1)) }
+            description?.let { add(plainMessage(it)) }
+            error?.let { add(plainMessage(it)) }
         }
 
     private fun MutableList<DialogBody>.addItemBody(fileName: String, element: DialogBodyElement.Item, player: Player) {
@@ -286,10 +297,7 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
         }
 
         val descriptionBody = if (element.description.isNotEmpty()) {
-            PlainMessageBody(
-                text(LoginUI.parseText(element.description.joinToString("\n"), player)),
-                element.descriptionWidth
-            )
+            plainMessage(LoginUI.parseText(element.description.joinToString("\n"), player), element.descriptionWidth)
         } else {
             null
         }
@@ -327,8 +335,8 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
     }
 
     private fun simpleBody(description: Component?, error: Component?): List<DialogBody> = buildList {
-        description?.let { add(PlainMessageBody(text(it), -1)) }
-        error?.let { add(PlainMessageBody(text(it), -1)) }
+        description?.let { add(plainMessage(it)) }
+        error?.let { add(plainMessage(it)) }
     }
 
     private fun button(label: Component, callbackId: String): ActionButton =
@@ -341,6 +349,9 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
         TextInput(spec.key, spec.width, text(spec.label), spec.labelVisible, spec.initial, spec.maxLength).apply {
             if (spec.height > 0) multiline(TextInput.Multiline(1, spec.height))
         }
+
+    private fun plainMessage(component: Component, width: Int = -1): PlainMessageBody =
+        if (width in 1..1024) PlainMessageBody(text(component), width) else PlainMessageBody(text(component))
 
     private fun text(component: Component): BaseComponent =
         TextComponent(*BungeeComponentSerializer.get().serialize(component))
@@ -363,6 +374,12 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
                 if (element?.isJsonPrimitive == true) put(key, element.asString)
             }
         }
+    }
+
+    /** 兼容 Spigot 不同版本将布尔输入编码为字符串或 NBT 数字的情况。 */
+    private fun parseBooleanInput(value: String?): Boolean = when (value?.trim()?.lowercase()) {
+        "true", "1", "yes", "on" -> true
+        else -> false
     }
 
     private fun clearCallbacks(playerId: UUID) {

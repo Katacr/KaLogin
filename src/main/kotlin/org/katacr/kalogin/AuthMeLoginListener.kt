@@ -2,6 +2,7 @@ package org.katacr.kalogin
 
 import fr.xephi.authme.api.v3.AuthMeApi
 import fr.xephi.authme.events.LoginEvent
+import fr.xephi.authme.events.RegisterEvent
 import fr.xephi.authme.events.RestoreSessionEvent
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -10,6 +11,8 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.katacr.kalogin.dialog.LoginResponse
 import org.katacr.kalogin.dialog.RegisterResponse
 import org.katacr.kalogin.listener.KaLoginAPI
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * AuthMe 模式下的登录监听器
@@ -19,25 +22,32 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     private val passwordValidator = PasswordValidator(plugin)
 
     // 跟踪正在处理的玩家，防止重复触发
-    private val processingPlayers = mutableSetOf<java.util.UUID>()
+    private val processingPlayers = ConcurrentHashMap.newKeySet<UUID>()
 
     // 跟踪玩家的登录错误次数
-    private val loginAttempts = mutableMapOf<java.util.UUID, Int>()
+    private val loginAttempts = ConcurrentHashMap<UUID, Int>()
 
     // 跟踪上次重新显示对话框的时间（防抖机制）
-    private val lastDialogReshowTimes = mutableMapOf<java.util.UUID, Long>()
+    private val lastDialogReshowTimes = ConcurrentHashMap<UUID, Long>()
 
     // 跟踪通过 Session 自动登录的玩家（用于区分手动登录和自动登录）
-    private val sessionAutoLoginPlayers = mutableSetOf<java.util.UUID>()
+    private val sessionAutoLoginPlayers = ConcurrentHashMap.newKeySet<UUID>()
 
     // 跟踪刚完成注册并等待 LoginEvent 收尾的玩家
-    private val pendingRegisterPlayers = mutableSetOf<java.util.UUID>()
+    private val pendingRegisterPlayers = ConcurrentHashMap.newKeySet<UUID>()
 
-    private fun runSync(action: () -> Unit) {
-        if (plugin.server.isPrimaryThread) {
+    /**
+     * 将 AuthMe 回调中的玩家操作切换到该玩家所属的调度线程。
+     */
+    private fun runOnPlayerThread(player: Player, action: () -> Unit) {
+        if (KaLoginScheduler.isPlayerThread(player)) {
             action()
         } else {
-            KaLoginScheduler.runGlobal(Runnable { action() })
+            KaLoginScheduler.runPlayer(player, Runnable {
+                if (player.isOnline) {
+                    action()
+                }
+            })
         }
     }
 
@@ -82,54 +92,82 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     @EventHandler
     fun onAuthMeLogin(event: LoginEvent) {
         val player = event.player
-        val uuid = player.uniqueId
+        runOnPlayerThread(player, authMeLogin@{
+            val uuid = player.uniqueId
 
-        // 检查是否是通过 Session 自动登录的
-        if (uuid in sessionAutoLoginPlayers) {
-            // 这是通过 Session 自动登录的
-            sessionAutoLoginPlayers.remove(uuid)
-            loginAttempts.remove(uuid)
+            // 检查是否是通过 Session 自动登录的
+            if (uuid in sessionAutoLoginPlayers) {
+                // 这是通过 Session 自动登录的
+                sessionAutoLoginPlayers.remove(uuid)
+                loginAttempts.remove(uuid)
+                val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+                lastDialogReshowTimes.remove(uuid)
+                plugin.welcomeManager.showWelcomeIfNeeded(player) {
+                    if (plugin.antiCheatManager.isAuthenticating(player)) {
+                        plugin.antiCheatManager.endAuthenticating(player)
+                    }
+                    plugin.eventActionExecutor.execute(player, "login")
+                    KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                    KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
+                        if (player.isOnline) {
+                            plugin.antiCheatManager.markProgrammaticClose(player)
+                            plugin.dialogPlatform.close(player)
+                            plugin.emailBindManager.showPromptIfNeeded(player)
+                        }
+                    })
+                }
+                return@authMeLogin
+            }
+
+            if (completePendingRegisterLogin(player)) {
+                return@authMeLogin
+            }
+
+            // 这是手动登录
             val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+            loginAttempts.remove(uuid)
             lastDialogReshowTimes.remove(uuid)
             plugin.welcomeManager.showWelcomeIfNeeded(player) {
                 if (plugin.antiCheatManager.isAuthenticating(player)) {
                     plugin.antiCheatManager.endAuthenticating(player)
                 }
                 plugin.eventActionExecutor.execute(player, "login")
-                KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                plugin.emailBindManager.showPromptIfNeeded(player)
+                KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
                 KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                     if (player.isOnline) {
                         plugin.antiCheatManager.markProgrammaticClose(player)
                         plugin.dialogPlatform.close(player)
-                        plugin.emailBindManager.showPromptIfNeeded(player)
                     }
                 })
             }
+        })
+    }
+
+    /**
+     * AuthMe 确认注册完成后再发起登录，避免异步注册和自动登录之间发生竞态。
+     */
+    @EventHandler
+    fun onAuthMeRegister(event: RegisterEvent) {
+        val player = event.player
+        if (!pendingRegisterPlayers.contains(player.uniqueId)) {
             return
         }
 
-        if (completePendingRegisterLogin(player)) {
-            return
-        }
-
-        // 这是手动登录
-        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
-        loginAttempts.remove(uuid)
-        lastDialogReshowTimes.remove(uuid)
-        plugin.welcomeManager.showWelcomeIfNeeded(player) {
-            if (plugin.antiCheatManager.isAuthenticating(player)) {
-                plugin.antiCheatManager.endAuthenticating(player)
+        KaLoginScheduler.runPlayer(player, Runnable {
+            if (!player.isOnline || !pendingRegisterPlayers.contains(player.uniqueId)) {
+                return@Runnable
             }
-            plugin.eventActionExecutor.execute(player, "login")
-            plugin.emailBindManager.showPromptIfNeeded(player)
-            KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
-            KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
-                if (player.isOnline) {
-                    plugin.antiCheatManager.markProgrammaticClose(player)
-                    plugin.dialogPlatform.close(player)
-                }
-            })
-        }
+
+            val authMeApi = AuthMeApi.getInstance() ?: return@Runnable
+            if (!authMeApi.isRegistered(player.name)) {
+                pendingRegisterPlayers.remove(player.uniqueId)
+                reopenRegisterDialog(player, plugin.messageManager.getMessage("register.failed"))
+                return@Runnable
+            }
+
+            authMeApi.forceLogin(player)
+        })
     }
 
     @EventHandler
@@ -147,23 +185,24 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
     fun onAuthMeLogout(event: fr.xephi.authme.events.LogoutEvent) {
         val player = event.player
 
-        // 玩家通过 AuthMe 登出，显示登录界面
-        // 清理防抖记录，允许立即显示登录对话框
-        lastDialogReshowTimes.remove(player.uniqueId)
-        loginAttempts.remove(player.uniqueId)
+        runOnPlayerThread(player) {
+            // 玩家通过 AuthMe 登出后直接断开连接，不再重新显示登录界面
+            lastDialogReshowTimes.remove(player.uniqueId)
+            loginAttempts.remove(player.uniqueId)
 
-        // 触发登出事件
-        KaLoginAPI.getInstance()?.callPlayerLogout(player)
+            // 触发登出事件
+            KaLoginAPI.getInstance()?.callPlayerLogout(player)
 
-        // 显示登录对话框
-        showLoginDialog(player)
+            plugin.antiCheatManager.markProgrammaticClose(player)
+            plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("logout.kick-message"))
+        }
     }
 
     @EventHandler
     fun onAuthMeUnregister(event: fr.xephi.authme.events.UnregisterByPlayerEvent) {
         val player = event.player
 
-        runSync {
+        runOnPlayerThread(player) {
             // 玩家通过 AuthMe 注销注册，显示注册界面
             // 清理防抖记录，允许立即显示注册对话框
             lastDialogReshowTimes.remove(player.uniqueId)
@@ -181,19 +220,22 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         val player = event.player
         val playerName = event.playerName
 
-        runSync {
-            // 触发管理员注销账户事件
-            KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
+        if (player != null && player.isOnline) {
+            runOnPlayerThread(player) {
+                // 触发管理员注销账户事件
+                KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
 
-            // 如果玩家在线，显示注册界面
-            if (player != null && player.isOnline) {
                 // 清理防抖记录，允许立即显示注册对话框
                 lastDialogReshowTimes.remove(player.uniqueId)
 
                 // 管理员删除玩家数据后，直接将在线玩家踢出，避免继续停留在服务器内
                 plugin.antiCheatManager.markProgrammaticClose(player)
-                player.kick(plugin.messageManager.getComponent("command.delete.kicked"))
+                plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("command.delete.kicked"))
             }
+        } else {
+            KaLoginScheduler.runGlobal(Runnable {
+                KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
+            })
         }
     }
 
@@ -218,7 +260,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         val attemptsLeft = maxAttempts - (loginAttempts[player.uniqueId] ?: 0)
 
         if (attemptsLeft <= 0) {
-            player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
+            plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("login.too-many-attempts"))
             return
         }
 
@@ -240,7 +282,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         authMeApi.forceLogin(player)
                         plugin.antiCheatManager.markProgrammaticClose(player)
                         plugin.dialogPlatform.close(player)
-                        player.sendMessage(plugin.messageManager.getComponent("login.success"))
+                        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("login.success"))
 
                         // 更新数据库：最后登录 IP 和自动登录设置
                         val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
@@ -261,7 +303,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                             KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, remainingAttempts)
                             reopenLoginDialog(player, plugin.messageManager.getMessage("login.password-wrong", "attempts" to remainingAttempts))
                         } else {
-                            player.kick(plugin.messageManager.getComponent("login.too-many-attempts"))
+                            plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("login.too-many-attempts"))
                             // 触发登录失败事件（剩余次数为0）
                             KaLoginAPI.getInstance()?.callPlayerLoginFailed(player, 0)
                         }
@@ -316,6 +358,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
         lastDialogReshowTimes.remove(uuid)
         plugin.welcomeManager.showWelcomeIfNeeded(player) {
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.success"))
             if (plugin.antiCheatManager.isAuthenticating(player)) {
                 plugin.antiCheatManager.endAuthenticating(player)
             }
@@ -379,7 +422,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     return@registerAction
                 }
 
-                player.sendMessage(plugin.messageManager.getComponent("register.saving"))
+                plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.saving"))
                 val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
                 plugin.dbManager.initPlayerForAuthMe(player.uniqueId, player.name, currentIp).thenAccept { dbSaved ->
                     KaLoginScheduler.runPlayer(player, Runnable {
@@ -388,25 +431,15 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                         try {
                             pendingRegisterPlayers.add(player.uniqueId)
                             loginAttempts.remove(player.uniqueId)
-                            authMeApi.forceRegister(player, password, true)
+                            authMeApi.forceRegister(player, password, false)
                             plugin.antiCheatManager.markProgrammaticClose(player)
                             plugin.dialogPlatform.close(player)
-                            player.sendMessage(plugin.messageManager.getComponent("register.success"))
                             lastDialogReshowTimes.remove(player.uniqueId)
 
                             if (!dbSaved) {
                                 plugin.logger.warning("AuthMe registration succeeded for ${player.name}, but KaLogin database init failed")
                             }
 
-                            KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
-                                if (
-                                    player.isOnline &&
-                                    pendingRegisterPlayers.contains(player.uniqueId) &&
-                                    authMeApi.isAuthenticated(player)
-                                ) {
-                                    completePendingRegisterLogin(player)
-                                }
-                            })
                         } catch (e: Exception) {
                             pendingRegisterPlayers.remove(player.uniqueId)
                             // 捕获 AuthMe 注册异常，获取具体错误信息
