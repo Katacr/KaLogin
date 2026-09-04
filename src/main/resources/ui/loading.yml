@@ -1,0 +1,8 @@
+Body:
+
+  # 加载提示语（使用MiniMessage格式）
+  loading:
+    type: 'message'
+    text: |
+      <gradient:gold:yellow>请稍候...<reset>
+      &7正在验证您的账号信息，请稍候

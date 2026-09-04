@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.katacr"
-version = "1.5.0"
+version = "1.5.1"
 
 repositories {
     maven("https://maven.aliyun.com/repository/central") {

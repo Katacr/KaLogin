@@ -1,0 +1,8 @@
+Body:
+
+  # Loading hint (MiniMessage format)
+  loading:
+    type: 'message'
+    text: |
+      <gradient:gold:yellow>Please wait...<reset>
+      &7Verifying your account information, please wait

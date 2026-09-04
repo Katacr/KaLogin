@@ -177,6 +177,11 @@ anti-cheat:
   command-blocked: "&cPlease complete registration/login before using commands"
   action-blocked: "&cPlease complete registration/login before performing this action"
 
+# Loading dialog related
+loading:
+  dialog-title: "Please Wait"
+  timeout-kick: "&cLoading timeout, the database is unresponsive. Please try again later."
+
 # AuthMe related
 authme:
   enabled: "AuthMe integration enabled"

@@ -89,7 +89,7 @@ class AuthMeManager(private val plugin: KaLogin) {
         if (useAuthMe) {
             val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
             plugin.dbManager.isPlayerRegistered(player.uniqueId).thenAccept { registered ->
-                if (!registered) {
+                if (registered == false) {
                     // 玩家首次在 AuthMe 模式下登录，初始化记录
                     plugin.dbManager.initPlayerForAuthMe(
                         player.uniqueId,

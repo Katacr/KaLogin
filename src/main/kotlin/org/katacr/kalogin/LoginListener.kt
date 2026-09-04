@@ -41,14 +41,48 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         // 重置登录错误次数
         loginAttempts.remove(player.uniqueId)
 
+        // 立即进入防作弊状态并显示"请稍候"对话框，遮罩玩家界面
+        plugin.antiCheatManager.startAuthenticating(player)
+        plugin.antiCheatManager.setPlayerDialogType(player, "loading")
+        showLoadingDialog(player)
+
+        // 加载超时兜底：数据库长时间无响应时踢出玩家
+        val loadingTimeoutSeconds = plugin.config.getInt("login.loading-timeout", 15)
+        val loadingTimeoutTask = KaLoginScheduler.runPlayerLater(player, loadingTimeoutSeconds * 20L, Runnable {
+            if (player.isOnline && !isLoggedIn(player.uniqueId)) {
+                plugin.antiCheatManager.markProgrammaticClose(player)
+                plugin.dialogPlatform.close(player)
+                plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("loading.timeout-kick"))
+                plugin.antiCheatManager.endAuthenticating(player)
+            }
+        })
+
         // 检查玩家是否已注册
         plugin.dbManager.isPlayerRegistered(player.uniqueId).thenAccept { registered ->
+            // 取消加载超时任务
+            loadingTimeoutTask.cancel()
+
+            if (registered == null) {
+                // 数据库查询失败，无法判断注册状态，踢出玩家避免误弹注册框
+                KaLoginScheduler.runPlayer(player, Runnable {
+                    if (player.isOnline) {
+                        plugin.antiCheatManager.markProgrammaticClose(player)
+                        plugin.dialogPlatform.close(player)
+                        plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("loading.timeout-kick"))
+                        plugin.antiCheatManager.endAuthenticating(player)
+                    }
+                })
+                return@thenAccept
+            }
+
             if (registered) {
                 // 已注册，检查玩家是否启用同IP自动登录
                 plugin.dbManager.canAutoLogin(player.uniqueId, currentIp).thenAccept { canAutoLogin ->
                 KaLoginScheduler.runPlayer(player, Runnable {
                     if (canAutoLogin) {
                         // IP 相同且玩家启用了自动登录，自动登录
+                        plugin.antiCheatManager.markProgrammaticClose(player)
+                        plugin.dialogPlatform.close(player)
                         plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("login.auto-login-success"))
                         loggedInPlayers[player.uniqueId] = true
                         plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
@@ -58,6 +92,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
                         }
                     } else {
+                            // 关闭加载对话框，显示登录对话框
+                            plugin.antiCheatManager.markProgrammaticClose(player)
+                            plugin.dialogPlatform.close(player)
                             // 根据配置延迟显示登录对话框
                             showLoginDialogDelayed(player)
                         }
@@ -71,8 +108,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     plugin.dbManager.countAccountsByIp(currentIp).thenAccept { count ->
                         KaLoginScheduler.runPlayer(player, Runnable {
                             if (count >= maxAccountsPerIp) {
+                                plugin.antiCheatManager.markProgrammaticClose(player)
+                                plugin.dialogPlatform.close(player)
                                 plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("ip-limit.exceeded", "count" to maxAccountsPerIp))
+                                plugin.antiCheatManager.endAuthenticating(player)
                             } else {
+                                // 关闭加载对话框，显示注册对话框
+                                plugin.antiCheatManager.markProgrammaticClose(player)
+                                plugin.dialogPlatform.close(player)
                                 showRegisterDialogDelayed(
                                     player,
                                     plugin.messageManager.getMessage("register.welcome", "seconds" to registerTimeout)
@@ -84,6 +127,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                     // 未启用限制，显示注册对话框
                     val registerTimeout = plugin.config.getInt("login.register-timeout", 90)
                     KaLoginScheduler.runPlayer(player, Runnable {
+                        // 关闭加载对话框，显示注册对话框
+                        plugin.antiCheatManager.markProgrammaticClose(player)
+                        plugin.dialogPlatform.close(player)
                         showRegisterDialogDelayed(
                             player,
                             plugin.messageManager.getMessage("register.welcome", "seconds" to registerTimeout)
@@ -208,6 +254,25 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 )
             })
         }
+    }
+
+    /**
+     * 显示"请稍候"加载对话框
+     */
+    private fun showLoadingDialog(player: Player) {
+        val bodyComponents = LoginUI.bodyElements(player, "loading").map { element ->
+            when (element) {
+                is DialogBodyElement.Message -> element.text
+                else -> null
+            }
+        }.filterNotNull()
+
+        plugin.antiCheatManager.markDialogOpened(player)
+        plugin.dialogPlatform.showLoading(
+            player,
+            plugin.messageManager.getComponent("loading.dialog-title"),
+            bodyComponents
+        )
     }
 
     /**

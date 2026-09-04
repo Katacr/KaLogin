@@ -177,6 +177,11 @@ anti-cheat:
   command-blocked: "&c请在完成注册/登录后再使用命令"
   action-blocked: "&c请在完成注册/登录后再进行此操作"
 
+# 加载界面相关
+loading:
+  dialog-title: "请稍候"
+  timeout-kick: "&c加载超时，服务器数据库无响应，请稍后重试。"
+
 # AuthMe 相关
 authme:
   enabled: "已启用 AuthMe 集成"

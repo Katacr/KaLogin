@@ -87,6 +87,16 @@ interface LoginDialogPlatform {
         onClose: () -> Unit
     )
 
+    /**
+     * 显示"请稍候"加载对话框，用于在数据库查询期间遮罩玩家界面。
+     * 该对话框不可关闭、无输入项、无回调。
+     */
+    fun showLoading(
+        player: Player,
+        title: Component,
+        body: List<Component>
+    )
+
     fun close(player: Player)
 
     /** 使用当前平台可用的文本协议发送 Adventure 组件。 */

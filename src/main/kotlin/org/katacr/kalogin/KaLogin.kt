@@ -199,7 +199,7 @@ class KaLogin : JavaPlugin() {
         }
 
         // 释放默认UI配置文件
-        listOf("login", "register", "change-password", "welcome").forEach { name ->
+        listOf("login", "register", "change-password", "welcome", "loading").forEach { name ->
             val uiFile = File(uiFolder, "$name.yml")
             if (!uiFile.exists()) {
                 saveResource("ui/$name.yml", false)

@@ -41,6 +41,9 @@ class PaperLoginDialogPlatform : LoginDialogPlatform {
     override val supportsToast: Boolean = true
     private lateinit var plugin: KaLogin
 
+    /** 加载对话框使用的占位按钮（notice 对话框必须有一个按钮，但不展示文字、无回调）。 */
+    private val EMPTY_BUTTON = ActionButton.builder(Component.empty()).build()
+
     override fun initialize(plugin: KaLogin) {
         this.plugin = plugin
     }
@@ -263,6 +266,25 @@ class PaperLoginDialogPlatform : LoginDialogPlatform {
             }
         )
     }
+
+    override fun showLoading(player: Player, title: Component, body: List<Component>) =
+        runPlayer(player) {
+            val bodyList = body.map { DialogBody.plainMessage(it) }
+            player.showDialog(
+                Dialog.create { builder ->
+                    builder.empty()
+                        .base(
+                            DialogBase.builder(title)
+                                .pause(false)
+                                .body(bodyList)
+                                .canCloseWithEscape(false)
+                                .afterAction(DialogBase.DialogAfterAction.NONE)
+                                .build()
+                        )
+                        .type(DialogType.notice(EMPTY_BUTTON))
+                }
+            )
+        }
 
     override fun close(player: Player) {
         runPlayer(player) { player.closeDialog() }

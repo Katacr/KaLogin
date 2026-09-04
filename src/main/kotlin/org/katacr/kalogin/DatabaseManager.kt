@@ -130,8 +130,12 @@ class DatabaseManager(private val plugin: KaLogin) {
 
     fun getConnection(): Connection? {
         try {
-            if (connection == null || connection!!.isClosed) {
-                init() // 断线重连
+            if (connection == null || connection!!.isClosed || !connection!!.isValid(2)) {
+                // 连接已关闭或失效，重新连接
+                if (connection != null) {
+                    try { connection?.close() } catch (_: SQLException) {}
+                }
+                init()
             }
         } catch (e: SQLException) {
             e.printStackTrace()
@@ -162,9 +166,12 @@ class DatabaseManager(private val plugin: KaLogin) {
     }
 
     /**
-     * 检查玩家是否已注册
+     * 检查玩家是否已注册。
+     *
+     * 返回 true=已注册，false=未注册，null=查询失败（数据库异常/连接断开）。
+     * 调用方需对 null 单独处理，避免将"查询失败"误判为"未注册"。
      */
-    fun isPlayerRegistered(uuid: UUID): CompletableFuture<Boolean> {
+    fun isPlayerRegistered(uuid: UUID): CompletableFuture<Boolean?> {
         return supplyDb {
             val sql = "SELECT COUNT(*) FROM kalogin_users WHERE uuid = ?"
             try {
@@ -174,10 +181,10 @@ class DatabaseManager(private val plugin: KaLogin) {
                         rs.next()
                         rs.getInt(1) > 0
                     }
-                } ?: false
+                }
             } catch (e: SQLException) {
                 e.printStackTrace()
-                false
+                null
             }
         }
     }

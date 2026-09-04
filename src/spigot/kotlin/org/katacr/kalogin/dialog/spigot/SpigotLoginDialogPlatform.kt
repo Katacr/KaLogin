@@ -210,6 +210,17 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
         )
     }
 
+    override fun showLoading(player: Player, title: Component, body: List<Component>) =
+        runPlayer(player) {
+            val bodyList = body.map { plainMessage(it) }
+            player.showDialog(
+                NoticeDialog(
+                    base(title, bodyList, emptyList(), canClose = false),
+                    ActionButton(text(Component.empty()), null, 150, CustomClickAction("kalogin:loading_noop"))
+                )
+            )
+        }
+
     override fun close(player: Player) {
         runPlayer(player) {
             clearCallbacks(player.uniqueId)
