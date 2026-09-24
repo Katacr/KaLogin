@@ -31,6 +31,15 @@ data class PlayerAutoLoginEvent(
 )
 
 /**
+ * 玩家跨服会话恢复事件
+ * 当玩家通过 KaProxy 群组会话在目标服免登录恢复登录态时触发
+ */
+data class PlayerProxyRestoreEvent(
+    val player: Player,
+    val ip: String
+)
+
+/**
  * 玩家注册成功事件
  * 当玩家成功注册新账户时触发
  */

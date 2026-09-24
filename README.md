@@ -1,12 +1,12 @@
 # KaLogin
 
-一个强大的 Minecraft Paper 服务器登录插件，提供安全的用户认证和反作弊功能。
+一个强大的 Minecraft Paper / Folia / Spigot 服务器登录插件，提供安全的用户认证和反作弊功能。
 
 ## 支持版本
-Paper 1.21.7 及以上
+Paper / Folia 1.21.7 及以上，Spigot 1.21.6 及以上，需要 Java 21
 
 ## 最新版本
-**v1.4.0** - [查看更新日志](CHANGELOG.md)
+**v1.5.1** - [查看更新日志](CHANGELOG.md)
 
 ## 功能特性
 
@@ -17,6 +17,8 @@ Paper 1.21.7 及以上
 - 🔒 **修改密码功能** - 支持玩家修改自己的密码
 - 📜 **欢迎/条款确认对话框** - 支持服务器规则展示、勾选确认与阅读状态记录
 - 📧 **邮箱绑定与找回密码** - 支持邮箱绑定、验证码校验、密码找回
+- 🌐 **群组服务器跨服登录** - 配合 KaProxy 实现切服免重复登录
+- 🔁 **登录后自动回到上次位置** - 配合 KaProxy 回到上次下线的子服与坐标
 - 🧩 **PlaceholderAPI 变量扩展** - 可读取邮箱、条款状态、登录 IP、注册时间等玩家信息
 - 👁️ 登录/注册期间反作弊机制
 - ⏱️ 登录/注册超时限制
@@ -153,7 +155,6 @@ Body:
     name: '&a&l服务器图标'
     description: '&f这是服务器图标的介绍'
     # item_model: 'minecraft:diamond'  # 可选：自定义物品模型（1.21.7+）
-    # item_model: 'minecraft:diamond'  # 可选：自定义物品模型（1.21.7+）
 
   # 纯文本消息
   intro:
@@ -196,7 +197,6 @@ Body:
     material: 'apple'
     name: '&a&l服务器图标'
     description: '&f这是服务器图标的介绍'
-    # item_model: 'minecraft:diamond'  # 可选：自定义物品模型（1.21.7+）
     # item_model: 'minecraft:diamond'  # 可选：自定义物品模型（1.21.7+）
 
   # 纯文本消息
@@ -266,14 +266,18 @@ message_key:
 item_key:
   type: 'item'
   material: 'apple'  # 物品材质
+  amount: 1  # 可选，物品数量（默认 1）
   name: '&a&l物品名称'  # 可选，物品显示名称
+  lore:  # 可选，物品 Lore（字符串列表）
+    - '&7第一行 Lore'
   description: '&f物品描述文本'  # 可选，物品描述
   description_width: 180  # 可选，描述文本宽度（像素）
   item_model: ''  # 可选，自定义物品模型（1.21.7+），格式: namespace:path
+  custom_model_data: 0  # 可选，旧版 CustomModelData 数值
   width: 16  # 可选，渲染宽度（像素）
   height: 16  # 可选，渲染高度（像素）
-  decorations: true  # 可选，是否显示装饰（耐久、数量等）
-  tooltip: true  # 可选，是否显示悬停提示
+  show_overlays: false  # 可选，是否显示数量、耐久等叠加层（默认 false）
+  show_tooltip: true  # 可选，是否显示悬停 Tooltip（默认 true）
 ```
 
 **item_model 参数说明**：
@@ -311,13 +315,13 @@ KaLogin 额外提供以下 PAPI 变量：
 ## 常见问题
 
 ### Q: 插件体积很小，会不会缺少依赖？
-A: 不会。从 1.2.0 版本开始，插件采用 Libby 运行时下载依赖，首次启动时会自动下载所需依赖（kotlin-stdlib、jbcrypt、sqlite-jdbc），所以插件体积更小。
+A: 不会。从 1.2.0 版本开始，插件采用 Libby 运行时下载依赖，首次启动时会自动下载所需依赖（kotlin-stdlib、jbcrypt、sqlite-jdbc、jakarta.mail、jakarta.activation、adventure-text-serializer-bungeecord 等），所以插件体积更小。
 
 ### Q: 如何修改密码？
 A: 使用 `/changepassword` 或 `/cp` 命令，通过修改密码界面进行操作，输入旧密码和新密码即可。
 
 ### Q: 自动登录在哪里设置？
-A: 在登录界面底部有一个"同 IP 自动登录"的复选框，勾选后即可启用自动登录。每个用户可以独立设置。
+A: 在登录界面底部有一个"同 IP 自动登录"的复选框，勾选后即可启用自动登录。每个用户可以独立设置。（注意：AuthMe 模式下自动登录由 AuthMe 的会话机制处理，此勾选框不生效。）
 
 
 ## 开放 API
@@ -326,11 +330,11 @@ KaLogin 提供开放的 API 接口，允许其他插件监听玩家的登录、�
 
 ### 添加依赖
 
-将`KaLogin-1.3.1.jar`插件本体复制到你项目内的libs文件夹，并在你的插件的 `build.gradle.kts` 中添加 KaLogin 作为软依赖：
+将 `KaLogin-1.5.1.jar` 插件本体复制到你项目内的 libs 文件夹，并在你的插件的 `build.gradle.kts` 中添加 KaLogin 作为软依赖：
 
 ```kotlin
 dependencies {
-    compileOnly(fileTree("libs") { include("KaLogin-1.3.1.jar") })
+    compileOnly(fileTree("libs") { include("KaLogin-1.5.1.jar") })
 }
 ```
 
@@ -343,19 +347,18 @@ softdepend:
 
 ### API 概述
 
-KaLogin 提供两种使用方式：
-1. **Bukkit 事件系统** - 使用标准的 Bukkit Event API
-2. **KaLoginListener 接口** - 使用 KaLogin 提供的专用监听器接口
+KaLogin 通过 **`KaLoginListener` 接口 + `KaLoginAPI`** 向其他插件分发事件。注意：KaLogin **没有**定义 Bukkit `Event` 子类，因此**不能**使用 `@EventHandler` 监听。
 
-### 使用 Bukkit 事件系统
+### 事件类说明
 
-KaLogin 定义了以下事件类，位于 `org.katacr.kalogin.listener` 包中：
+以下事件数据类位于 `org.katacr.kalogin.listener` 包中，均为普通 `data class`，由 `KaLoginListener` 对应方法回调传递：
 
 | 事件类 | 说明 | 包含数据 |
 |--------|------|----------|
 | `PlayerLoginSuccessEvent` | 玩家登录成功 | `player`, `ip`, `isAutoLogin` |
 | `PlayerLoginFailedEvent` | 玩家登录失败 | `player`, `remainingAttempts` |
 | `PlayerAutoLoginEvent` | 玩家自动登录成功 | `player`, `ip` |
+| `PlayerProxyRestoreEvent` | 跨服会话恢复登录 | `player`, `ip` |
 | `PlayerRegisterSuccessEvent` | 玩家注册成功 | `player`, `ip` |
 | `PlayerRegisterFailedEvent` | 玩家注册失败 | `player`, `reason` |
 | `PlayerChangePasswordSuccessEvent` | 修改密码成功 | `player` |
@@ -364,58 +367,11 @@ KaLogin 定义了以下事件类，位于 `org.katacr.kalogin.listener` 包中�
 | `PlayerUnregisterEvent` | 玩家注销账户 | `player` |
 | `PlayerAdminUnregisterEvent` | 管理员注销账户 | `playerName` |
 
-**示例代码：**
-
-```kotlin
-package com.example.plugin
-
-import org.bukkit.event.EventHandler
-import org.bukkit.event.Listener
-import org.bukkit.plugin.java.JavaPlugin
-import org.katacr.kalogin.listener.*
-
-class MyPlugin : JavaPlugin(), Listener {
-
-    override fun onEnable() {
-        server.pluginManager.registerEvents(this, this)
-    }
-
-    @EventHandler
-    fun onPlayerLoginSuccess(event: PlayerLoginSuccessEvent) {
-        val player = event.player
-        val ip = event.ip
-        val isAutoLogin = event.isAutoLogin
-
-        if (isAutoLogin) {
-            logger.info("玩家 ${player.name} 通过自动登录成功")
-        } else {
-            logger.info("玩家 ${player.name} 登录成功，IP: $ip")
-        }
-    }
-
-    @EventHandler
-    fun onPlayerLoginFailed(event: PlayerLoginFailedEvent) {
-        val player = event.player
-        val remaining = event.remainingAttempts
-
-        logger.warning("玩家 ${player.name} 登录失败，剩余尝试次数: $remaining")
-    }
-
-    @EventHandler
-    fun onPlayerRegisterSuccess(event: PlayerRegisterSuccessEvent) {
-        logger.info("玩家 ${event.player.name} 注册成功")
-    }
-
-    @EventHandler
-    fun onPlayerLogout(event: PlayerLogoutEvent) {
-        logger.info("玩家 ${event.player.name} 登出")
-    }
-}
-```
+> ⚠️ 注意：KaLogin 的事件不是 Bukkit Event，请使用下方的 `KaLoginListener` 接口订阅。
 
 ### 使用 KaLoginListener 接口
 
-除了 Bukkit 事件系统，你还可以使用 KaLogin 提供的专用监听器接口：
+KaLogin 提供的专用监听器接口用法如下：
 
 **示例代码：**
 
@@ -430,13 +386,14 @@ class MyPlugin : JavaPlugin() {
     private lateinit var myListener: MyKaLoginListener
 
     override fun onEnable() {
-        // 获取 API 实例
-        val api = KaLoginAPI.getInstance()
-        if (api == null) {
+        // 确认 KaLogin 已安装（KaLoginAPI.getInstance() 始终返回实例，需先检查插件是否存在）
+        if (server.pluginManager.getPlugin("KaLogin") == null) {
             logger.warning("KaLogin 未安装，API 功能不可用")
             return
         }
 
+        // 获取 API 实例并检查启用状态
+        val api = KaLoginAPI.getInstance()
         if (!api.isEnabled()) {
             logger.warning("KaLogin 未启用，API 功能不可用")
             return
@@ -545,7 +502,7 @@ val reason: String  // 失败原因，可能是：
 ### 注意事项
 
 1. **软依赖**：确保在你的插件中正确配置 `softdepend`，以确保 KaLogin 在你的插件之前加载
-2. **空值检查**：始终检查 `KaLoginAPI.getInstance()` 是否为 null
+2. **实例说明**：`KaLoginAPI.getInstance()` 为惰性单例，始终返回实例（不会为 null）；请用 `api.isEnabled()` 判断 KaLogin 是否已启用
 3. **启用状态**：使用 `api.isEnabled()` 检查 KaLogin 是否已启用
 4. **事件线程**：所有事件都在主线程触发，可以安全地进行 Bukkit 操作
 5. **AuthMe 兼容**：当 KaLogin 使用 AuthMe 模式时，事件仍会正常触发

@@ -15,7 +15,7 @@ Main commands:
 | `/kl register <player> <password>` | Set or reset password for a player |
 | `/kl resetterms <player>` | Reset terms confirmation for one player |
 | `/kl resetterms all` | Reset terms confirmation for all players |
-| `/kl reload` | Reload KaLogin configuration, language files, and UI files |
+| `/kl reload` | Reload KaLogin configuration and language files (UI files are read on each dialog open, no reload needed) |
 
 ## Player commands
 

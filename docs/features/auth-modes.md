@@ -16,6 +16,8 @@ use-AuthMe: true
 - KaLogin 提供登录、注册、修改密码等界面
 - KaLogin 仍会保存邮箱、条款确认、自动登录设置等扩展数据
 
+> 注意：AuthMe 模式下，同 IP 自动登录由 AuthMe 的会话（session）机制处理；KaLogin 界面上的"同 IP 自动登录"勾选框不会影响 AuthMe 的登录判定。AuthMe 模式下 KaLogin 的登录/注册超时设置同样不生效，超时由 AuthMe 控制。
+
 安装时请确保 AuthMe 插件已放入 `plugins` 文件夹并正常启用。否则 KaLogin 会回退到内置认证模式。
 
 ## KaLogin 模式

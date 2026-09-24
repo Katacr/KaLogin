@@ -182,6 +182,11 @@ loading:
   dialog-title: "Please Wait"
   timeout-kick: "&cLoading timeout, the database is unresponsive. Please try again later."
 
+# Cross-server login session related
+proxy:
+  session-restored: "&aGroup login session detected, logged in automatically."
+  unavailable-kick: "&cUnable to reach the network proxy. Please try again later."
+
 # AuthMe related
 authme:
   enabled: "AuthMe integration enabled"

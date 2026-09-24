@@ -11,6 +11,8 @@ import org.bukkit.plugin.java.JavaPlugin
 import org.katacr.kalogin.dialog.LoginDialogPlatform
 import org.katacr.kalogin.dialog.LoginDialogPlatformLoader
 import org.katacr.kalogin.listener.KaLoginAPI
+import org.katacr.kalogin.proxy.LastSeenManager
+import org.katacr.kalogin.proxy.ProxySessionManager
 import java.io.File
 
 class KaLogin : JavaPlugin() {
@@ -24,6 +26,8 @@ class KaLogin : JavaPlugin() {
     lateinit var emailBindManager: EmailBindManager
     lateinit var welcomeManager: WelcomeManager
     lateinit var dialogPlatform: LoginDialogPlatform
+    lateinit var proxySessionManager: ProxySessionManager
+    lateinit var lastSeenManager: LastSeenManager
     private var placeholderExpansion: KaLoginPlaceholderExpansion? = null
     var authMeLoginListener: AuthMeLoginListener? = null
 
@@ -131,6 +135,14 @@ class KaLogin : JavaPlugin() {
         LoginUI.init(this)
         dialogPlatform = LoginDialogPlatformLoader.load(this)
         logger.info("Using ${dialogPlatform.platformName} Dialog platform")
+
+        // 初始化群组登录会话（KaProxy）
+        proxySessionManager = ProxySessionManager(this)
+        proxySessionManager.init()
+
+        // 初始化“上次下线位置”（KaProxy）
+        lastSeenManager = LastSeenManager(this)
+        lastSeenManager.init()
 
         // 初始化 Geyser/Floodgate 兼容层
         GeyserCompat.init(this)
@@ -254,6 +266,17 @@ class KaLogin : JavaPlugin() {
     }
 
     override fun onDisable() {
+        // 停服时 PlayerQuitEvent 可能晚于本回调，先主动为在线玩家写位置，
+        // 再由 dbManager.close() 等待异步任务落盘，避免关闭时丢失坐标。
+        if (::lastSeenManager.isInitialized) {
+            lastSeenManager.reportAllOnline()
+        }
+        if (::lastSeenManager.isInitialized) {
+            lastSeenManager.shutdown()
+        }
+        if (::proxySessionManager.isInitialized) {
+            proxySessionManager.shutdown()
+        }
         if (::dialogPlatform.isInitialized) {
             dialogPlatform.shutdown()
         }

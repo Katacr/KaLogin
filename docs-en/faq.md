@@ -28,11 +28,7 @@ If it still does not open, check that your server version meets the requirement.
 
 ## Why did my UI changes not apply?
 
-Run:
-
-```bash
-/kl reload
-```
+UI files are read from disk each time a screen opens, so `/kl reload` is not required. If the screen is already open, have the player rejoin or trigger it again.
 
 If you changed authentication mode, database, or dependency plugins, restart the server.
 

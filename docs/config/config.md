@@ -216,6 +216,50 @@ email-binding:
 
 详见 [邮箱绑定与找回密码](../features/email.md)。
 
+## 群组登录会话
+
+```yaml
+proxy:
+  enabled: false
+  server-name: ""
+  require-proxy: false
+  query-timeout-ms: 5000
+  query-delay-ticks: 3
+  restore-welcome: true
+  restore-email-prompt: false
+  replay-login-actions: false
+```
+
+| 配置项 | 说明 |
+|---|---|
+| `proxy.enabled` | 是否启用群组登录会话 |
+| `proxy.server-name` | 本服在代理中的注册名（须与 velocity.toml 一致），用于写上次位置；留空不记录 |
+| `proxy.require-proxy` | 代理不可用时是否拒绝进入 |
+| `proxy.query-timeout-ms` | 会话查询应答超时(毫秒) |
+| `proxy.query-delay-ticks` | 进服后延迟查询的 tick 数 |
+| `proxy.restore-welcome` | 跨服恢复时是否按条款状态弹欢迎 |
+| `proxy.restore-email-prompt` | 跨服恢复时是否重复邮箱提示 |
+| `proxy.replay-login-actions` | 跨服恢复时是否重放 `events.login` |
+
+详见 [群组服务器与跨服登录](../features/proxy.md)。
+
+## 上次下线位置
+
+```yaml
+last-seen:
+  enabled: true
+  blacklist:
+    - pve
+    - pvp
+```
+
+| 配置项 | 说明 |
+|---|---|
+| `last-seen.enabled` | 登录完成后是否自动回到上次下线的子服与坐标（依赖 `proxy.enabled`） |
+| `last-seen.blacklist` | 不记录位置的子服名列表（须与 `proxy.server-name`/代理注册名一致）；从这些子服退服时不写坐标，下次登录回默认服出生点 |
+
+详见 [群组服务器与跨服登录](../features/proxy.md)。
+
 ## 登录/注册后动作
 
 ```yaml

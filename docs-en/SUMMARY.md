@@ -6,6 +6,7 @@
   * [config.yml](config/config.md)
 * [Features](features/README.md)
   * [Authentication Modes](features/auth-modes.md)
+  * [Group Servers and Cross-Server Login](features/proxy.md)
   * [UI Customization](features/ui.md)
   * [Email Binding and Password Recovery](features/email.md)
   * [Welcome and Terms](features/welcome.md)

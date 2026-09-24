@@ -486,6 +486,12 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
             registerTimeoutTasks.remove(uuid)
         }
 
+        // 取消待处理的群组会话查询（切服时也走此分支，但不影响代理会话）
+        plugin.proxySessionManager.onQuit(player)
+
+        // 上报上次下线位置（登出/注销已使会话失效时跳过，以免复活位置记录）
+        plugin.lastSeenManager.onPlayerQuit(player)
+
         // 清理 LoginListener 的数据
         plugin.loginListener.clearPlayerData(uuid)
 

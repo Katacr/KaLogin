@@ -1,7 +1,7 @@
 # KaLogin 配置文件
 
 # 配置文件版本（请勿修改）
-config-version: 10
+config-version: 14
 
 # 语言设置: zh_CN (简体中文) 或 en_US (English)
 language: "zh_CN"
@@ -78,6 +78,41 @@ login:
 change-password:
   # 旧密码验证最大失败次数，超过后取消修改
   max-attempts: 3
+
+# 群组服务器登录会话（KaProxy）
+# 需配套使用 KaProxy，并确保所有子服共享同一数据库（MySQL）。
+# 启用后，玩家在一个子服登录成功，切换到其它子服时将免重复登录。
+proxy:
+  # 是否启用群组登录会话
+  enabled: false
+  # 本服在代理中的子服名（须与 Velocity velocity.toml / Bungee config.yml 中一致），
+  # 用于写入跨服上次位置记录。留空则退服时不上报位置。
+  server-name: ""
+  # 代理不可用（查询超时）时是否拒绝进入；false 时回退本地登录/注册
+  require-proxy: false
+  # 查询代理会话的应答超时时间（毫秒），超时按代理不可用处理
+  query-timeout-ms: 5000
+  # 进服后延迟多少 tick 再发送查询，避开连接 configuration 阶段的丢包
+  query-delay-ticks: 3
+  # 跨服恢复登录态时，是否仍按数据库条款状态决定是否弹欢迎界面
+  restore-welcome: true
+  # 跨服恢复时是否重复弹出邮箱绑定提示
+  restore-email-prompt: false
+  # 跨服恢复时是否重放 events.login 动作
+  replay-login-actions: false
+
+# 上次下线位置（KaProxy）
+# 仅在 proxy.enabled 为 true 时生效。
+# 玩家登录完成后自动回到上次下线的子服与坐标，替代每次都从默认服（Lobby）开始。
+last-seen:
+  # 是否启用上次下线位置自动前往
+  enabled: true
+  # 不记录位置的子服名列表（须与 proxy.server-name / 代理注册名一致）。
+  # 从这些子服退服时不写坐标，下次登录无记录 → 回默认服（Lobby）出生点。
+  # 适合副本、竞技场等仅在活动期间有意义的子服。
+  blacklist:
+    - "pve"
+    - "pvp"
 
 # 欢迎对话框设置
 welcome-dialog:

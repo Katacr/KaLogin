@@ -182,6 +182,11 @@ loading:
   dialog-title: "请稍候"
   timeout-kick: "&c加载超时，服务器数据库无响应，请稍后重试。"
 
+# 群组登录会话相关
+proxy:
+  session-restored: "&a检测到群组登录状态，已自动登录。"
+  unavailable-kick: "&c无法连接群组代理，请稍后重试。"
+
 # AuthMe 相关
 authme:
   enabled: "已启用 AuthMe 集成"

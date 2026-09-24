@@ -216,6 +216,50 @@ email-binding:
 
 See [Email Binding and Password Recovery](../features/email.md).
 
+## Cross-server login session
+
+```yaml
+proxy:
+  enabled: false
+  server-name: ""
+  require-proxy: false
+  query-timeout-ms: 5000
+  query-delay-ticks: 3
+  restore-welcome: true
+  restore-email-prompt: false
+  replay-login-actions: false
+```
+
+| Option | Description |
+|---|---|
+| `proxy.enabled` | Enable the cross-server login session |
+| `proxy.server-name` | This backend's registered proxy name (must match velocity.toml); used for last-position writes. Empty means no recording |
+| `proxy.require-proxy` | Reject entry when the proxy is unavailable |
+| `proxy.query-timeout-ms` | Session query response timeout (ms) |
+| `proxy.query-delay-ticks` | Ticks to wait after join before querying |
+| `proxy.restore-welcome` | Show the welcome screen on restore based on the terms state |
+| `proxy.restore-email-prompt` | Repeat the email prompt on restore |
+| `proxy.replay-login-actions` | Replay `events.login` on restore |
+
+See [Group Servers and Cross-Server Login](../features/proxy.md).
+
+## Last server and position
+
+```yaml
+last-seen:
+  enabled: true
+  blacklist:
+    - pve
+    - pvp
+```
+
+| Option | Description |
+|---|---|
+| `last-seen.enabled` | Return to the last server and position after login (requires `proxy.enabled`) |
+| `last-seen.blacklist` | Backends where no position is recorded (must match `proxy.server-name`/the proxy registration name); leaving one stores no coordinates, so the next login starts at the default server's spawn |
+
+See [Group Servers and Cross-Server Login](../features/proxy.md).
+
 ## Login and registration actions
 
 ```yaml

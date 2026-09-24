@@ -58,6 +58,7 @@ class KaLoginCommand(private val plugin: KaLogin) : CommandExecutor, TabComplete
         plugin.dbManager.deletePlayer(player.uniqueId).thenAccept { success ->
             KaLoginScheduler.runGlobal(Runnable {
                 if (success) {
+                    plugin.proxySessionManager.reportUnregister(player.uniqueId, playerName)
                     plugin.messageManager.sendMessage(sender, "command.delete.success", "player" to playerName)
                     // 如果玩家在线，踢出玩家
                     val onlinePlayer = Bukkit.getPlayerExact(playerName)

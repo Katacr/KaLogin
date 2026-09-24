@@ -156,6 +156,18 @@ class KaLoginAPI private constructor() {
     }
 
     /**
+     * 触发跨服会话恢复事件
+     * 当玩家通过 KaProxy 群组会话在目标服免登录恢复登录态时调用
+     * @param player 恢复登录的玩家
+     * @param ip 玩家IP地址
+     */
+    fun callPlayerProxyRestore(player: Player, ip: String) {
+        if (!isPluginEnabled) return
+        val event = PlayerProxyRestoreEvent(player, ip)
+        listeners.forEach { it.onPlayerProxyRestore(event) }
+    }
+
+    /**
      * 触发玩家注册成功事件
      * @param player 注册的玩家
      * @param ip 玩家IP地址
@@ -227,14 +239,19 @@ class KaLoginAPI private constructor() {
         // 2. 关闭同IP自动登录
         plugin.dbManager.updateAutoLoginByIp(player.uniqueId, false)
 
-        // 3. 如果使用 AuthMe，触发 AuthMe 登出
+        // 3. 群组模式：使代理会话失效并由代理断开整个群组
+        val proxyHandled = plugin.proxySessionManager.reportLogout(player)
+
+        // 4. 如果使用 AuthMe，触发 AuthMe 登出
         if (plugin.authMeManager.useAuthMe) {
             plugin.authMeManager.forceLogout(player)
         }
 
-        // 4. 踢出玩家
-        val message = kickMessage ?: plugin.messageManager.getComponent("logout.kick-message")
-        plugin.messageManager.kickPlayer(player, message)
+        // 5. 非群组模式（或代理未接管）时在本服踢出玩家
+        if (!proxyHandled) {
+            val message = kickMessage ?: plugin.messageManager.getComponent("logout.kick-message")
+            plugin.messageManager.kickPlayer(player, message)
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ import fr.xephi.authme.api.v3.AuthMeApi
 import fr.xephi.authme.events.LoginEvent
 import fr.xephi.authme.events.RegisterEvent
 import fr.xephi.authme.events.RestoreSessionEvent
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -11,6 +12,7 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.katacr.kalogin.dialog.LoginResponse
 import org.katacr.kalogin.dialog.RegisterResponse
 import org.katacr.kalogin.listener.KaLoginAPI
+import org.katacr.kalogin.proxy.ProxySessionManager
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -35,6 +37,9 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
     // 跟踪刚完成注册并等待 LoginEvent 收尾的玩家
     private val pendingRegisterPlayers = ConcurrentHashMap.newKeySet<UUID>()
+
+    // 跟踪通过 KaProxy 跨服会话恢复登录的玩家（用于短路 forceLogin 触发的 LoginEvent）
+    private val proxyRestoredPlayers = ConcurrentHashMap.newKeySet<UUID>()
 
     /**
      * 将 AuthMe 回调中的玩家操作切换到该玩家所属的调度线程。
@@ -76,6 +81,34 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         val isRegistered = authMeApi.isRegistered(player.name)
         processingPlayers.remove(uuid)
 
+        // 群组模式：先向 KaProxy 查询是否已有跨服登录会话
+        if (plugin.proxySessionManager.isEnabled()) {
+            plugin.antiCheatManager.startAuthenticating(player)
+            plugin.antiCheatManager.setPlayerDialogType(player, "loading")
+            plugin.proxySessionManager.query(player) { result ->
+                if (!player.isOnline) return@query
+                when (result) {
+                    ProxySessionManager.QueryResult.AUTHENTICATED -> restoreProxySession(player)
+                    ProxySessionManager.QueryResult.UNAVAILABLE ->
+                        if (plugin.proxySessionManager.isRequireProxy()) {
+                            kickProxyUnavailable(player)
+                        } else {
+                            beginLocalFlow(player, isRegistered)
+                        }
+                    ProxySessionManager.QueryResult.NOT_AUTHENTICATED ->
+                        beginLocalFlow(player, isRegistered)
+                }
+            }
+            return
+        }
+
+        beginLocalFlow(player, isRegistered)
+    }
+
+    /**
+     * 走本地的登录/注册界面流程。
+     */
+    private fun beginLocalFlow(player: Player, isRegistered: Boolean) {
         plugin.authMeManager.initPlayerInDatabase(player)
 
         if (isRegistered) {
@@ -89,11 +122,69 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         }
     }
 
+    /**
+     * 代理确认已登录：恢复 AuthMe 登录态并跳过登录/注册界面。
+     */
+    private fun restoreProxySession(player: Player) {
+        if (!player.isOnline) return
+        val uuid = player.uniqueId
+        proxyRestoredPlayers.add(uuid)
+        plugin.antiCheatManager.markProgrammaticClose(player)
+        plugin.dialogPlatform.close(player)
+        loginAttempts.remove(uuid)
+        lastDialogReshowTimes.remove(uuid)
+        // 恢复 AuthMe 认证状态；触发的 LoginEvent 由 proxyRestoredPlayers 短路
+        val forced = runCatching { plugin.authMeManager.forceLogin(player) }.isSuccess
+        if (!forced) {
+            // AuthMe 无法恢复（例如未共享数据库/未注册），回退本地登录/注册界面
+            proxyRestoredPlayers.remove(uuid)
+            val registered = AuthMeApi.getInstance()?.isRegistered(player.name) ?: false
+            beginLocalFlow(player, registered)
+            return
+        }
+        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("proxy.session-restored"))
+        val tail = Runnable {
+            if (!player.isOnline) return@Runnable
+            if (plugin.antiCheatManager.isAuthenticating(player)) {
+                plugin.antiCheatManager.endAuthenticating(player)
+            }
+            if (plugin.proxySessionManager.isReplayLoginActions()) {
+                plugin.eventActionExecutor.execute(player, "login")
+            }
+            if (plugin.proxySessionManager.isRestoreEmailPrompt()) {
+                plugin.emailBindManager.showPromptIfNeeded(player)
+            }
+            KaLoginAPI.getInstance()?.callPlayerProxyRestore(player, currentIp)
+            plugin.lastSeenManager.onAuthenticated(player)
+        }
+        if (plugin.proxySessionManager.isRestoreWelcome()) {
+            plugin.welcomeManager.showWelcomeIfNeeded(player) { tail.run() }
+        } else {
+            tail.run()
+        }
+    }
+
+    /**
+     * 代理不可用且配置要求必须走代理时，踢出玩家。
+     */
+    private fun kickProxyUnavailable(player: Player) {
+        plugin.antiCheatManager.markProgrammaticClose(player)
+        plugin.dialogPlatform.close(player)
+        plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("proxy.unavailable-kick"))
+        plugin.antiCheatManager.endAuthenticating(player)
+    }
+
     @EventHandler
     fun onAuthMeLogin(event: LoginEvent) {
         val player = event.player
         runOnPlayerThread(player, authMeLogin@{
             val uuid = player.uniqueId
+
+            // 跨服恢复：forceLogin 触发的 LoginEvent 由恢复流程接管，避免重复处理
+            if (proxyRestoredPlayers.remove(uuid)) {
+                return@authMeLogin
+            }
 
             // 检查是否是通过 Session 自动登录的
             if (uuid in sessionAutoLoginPlayers) {
@@ -108,6 +199,8 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                     }
                     plugin.eventActionExecutor.execute(player, "login")
                     KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                    plugin.proxySessionManager.reportAuth(player)
+                    plugin.lastSeenManager.onAuthenticated(player)
                     KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                         if (player.isOnline) {
                             plugin.antiCheatManager.markProgrammaticClose(player)
@@ -134,6 +227,8 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
                 plugin.eventActionExecutor.execute(player, "login")
                 plugin.emailBindManager.showPromptIfNeeded(player)
                 KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
+                plugin.proxySessionManager.reportAuth(player)
+                plugin.lastSeenManager.onAuthenticated(player)
                 KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                     if (player.isOnline) {
                         plugin.antiCheatManager.markProgrammaticClose(player)
@@ -194,6 +289,12 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             KaLoginAPI.getInstance()?.callPlayerLogout(player)
 
             plugin.antiCheatManager.markProgrammaticClose(player)
+
+            // 群组模式：会话失效由 /logout 命令或代理断线处理；
+            // AuthMe 的 LogoutEvent 也可能因切服/退服触发，故此处既不销毁会话也不在后端踢出
+            if (plugin.proxySessionManager.isEnabled()) {
+                return@runOnPlayerThread
+            }
             plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("logout.kick-message"))
         }
     }
@@ -209,6 +310,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
 
             // 触发注销账户事件
             KaLoginAPI.getInstance()?.callPlayerUnregister(player)
+            plugin.proxySessionManager.reportUnregister(player.uniqueId, player.name)
 
             // 显示注册对话框
             showRegisterDialog(player)
@@ -224,6 +326,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             runOnPlayerThread(player) {
                 // 触发管理员注销账户事件
                 KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
+                plugin.proxySessionManager.reportUnregister(player.uniqueId, playerName)
 
                 // 清理防抖记录，允许立即显示注册对话框
                 lastDialogReshowTimes.remove(player.uniqueId)
@@ -235,6 +338,7 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
         } else {
             KaLoginScheduler.runGlobal(Runnable {
                 KaLoginAPI.getInstance()?.callPlayerAdminUnregister(playerName)
+                plugin.proxySessionManager.reportUnregister(Bukkit.getOfflinePlayer(playerName).uniqueId, playerName)
             })
         }
     }
@@ -365,6 +469,8 @@ class AuthMeLoginListener(private val plugin: KaLogin) : Listener {
             plugin.eventActionExecutor.execute(player, "register")
             plugin.emailBindManager.showPromptIfNeeded(player)
             KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, currentIp)
+            plugin.proxySessionManager.reportAuth(player)
+            plugin.lastSeenManager.onAuthenticated(player)
             KaLoginScheduler.runPlayerLater(player, 1L, Runnable {
                 if (player.isOnline) {
                     plugin.antiCheatManager.markProgrammaticClose(player)

@@ -328,6 +328,7 @@ class EmailBindManager(private val plugin: KaLogin) {
                 if (success) {
                     pendingCodes.remove(player.uniqueId)
                     plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.success"))
+                    plugin.proxySessionManager.reportPasswordChanged(player)
                 } else {
                     plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("recover-password.failed"))
                 }

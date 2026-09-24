@@ -45,7 +45,7 @@ Spigot does not support Toast actions. KaLogin skips the action and logs one con
 
 ## Variables
 
-Use `%player_name%` for the player name.
+Use `%player_name%` or `{player_name}` for the player name.
 
 ```yaml
 events:

@@ -18,6 +18,8 @@ In this mode:
 | Login, registration, and password change screens | KaLogin |
 | Email, terms, and auto login settings | KaLogin |
 
+> Note: In AuthMe mode, same IP auto login is handled by AuthMe sessions. The "same IP auto login" checkbox in the KaLogin screen does not affect AuthMe login. KaLogin login/registration timeouts also do not apply in AuthMe mode; AuthMe controls timeouts.
+
 Make sure AuthMe is installed and enabled. If AuthMe is not available, KaLogin falls back to its built in mode.
 
 ## KaLogin built in mode

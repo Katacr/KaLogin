@@ -35,14 +35,19 @@ class LogoutCommand(private val plugin: KaLogin) : CommandExecutor, TabCompleter
         // 2. 关闭同IP自动登录
         plugin.dbManager.updateAutoLoginByIp(sender.uniqueId, false)
 
-        // 3. 如果使用 AuthMe，触发 AuthMe 登出
+        // 3. 群组模式：使代理会话失效，并由代理断开整个群组连接
+        val proxyHandled = plugin.proxySessionManager.reportLogout(sender)
+
+        // 4. 如果使用 AuthMe，触发 AuthMe 登出
         if (plugin.authMeManager.useAuthMe) {
             plugin.authMeManager.forceLogout(sender)
         }
 
-        // 4. 踢出玩家并显示消息
-        val kickMessage = plugin.messageManager.getComponent("logout.kick-message")
-        plugin.messageManager.kickPlayer(sender, kickMessage)
+        // 5. 非群组模式（或代理未接管）时在本服踢出玩家
+        if (!proxyHandled) {
+            val kickMessage = plugin.messageManager.getComponent("logout.kick-message")
+            plugin.messageManager.kickPlayer(sender, kickMessage)
+        }
 
         return true
     }

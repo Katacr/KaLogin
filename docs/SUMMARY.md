@@ -6,6 +6,7 @@
   * [配置文件: config.yml](config/config.md)
 * [功能使用](features/README.md)
   * [认证模式](features/auth-modes.md)
+  * [群组服务器与跨服登录](features/proxy.md)
   * [界面自定义](features/ui.md)
   * [邮箱绑定与找回密码](features/email.md)
   * [欢迎和条款确认](features/welcome.md)

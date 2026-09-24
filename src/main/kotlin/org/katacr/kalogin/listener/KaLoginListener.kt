@@ -46,6 +46,12 @@ interface KaLoginListener {
     open fun onPlayerAutoLogin(event: PlayerAutoLoginEvent) {}
 
     /**
+     * 当玩家通过群组会话在目标服恢复登录态时调用
+     * @param event 跨服会话恢复事件
+     */
+    open fun onPlayerProxyRestore(event: PlayerProxyRestoreEvent) {}
+
+    /**
      * 当玩家注册成功时调用
      * @param event 注册成功事件
      */

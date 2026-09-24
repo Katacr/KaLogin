@@ -7,6 +7,7 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.katacr.kalogin.dialog.LoginResponse
 import org.katacr.kalogin.dialog.RegisterResponse
 import org.katacr.kalogin.listener.KaLoginAPI
+import org.katacr.kalogin.proxy.ProxySessionManager
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -28,7 +29,6 @@ class LoginListener(private val plugin: KaLogin) : Listener {
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
         val player = event.player
-        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
 
         // 如果使用 AuthMe 模式，由 AuthMeLoginListener 处理自动登录检查
         if (plugin.authMeManager.useAuthMe) {
@@ -56,6 +56,34 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 plugin.antiCheatManager.endAuthenticating(player)
             }
         })
+
+        // 群组模式：先向 KaProxy 查询是否已有跨服登录会话
+        if (plugin.proxySessionManager.isEnabled()) {
+            plugin.proxySessionManager.query(player) { result ->
+                loadingTimeoutTask.cancel()
+                when (result) {
+                    ProxySessionManager.QueryResult.AUTHENTICATED -> restoreProxySession(player)
+                    ProxySessionManager.QueryResult.UNAVAILABLE ->
+                        if (plugin.proxySessionManager.isRequireProxy()) {
+                            kickProxyUnavailable(player)
+                        } else {
+                            beginLocalAuth(player, loadingTimeoutTask)
+                        }
+                    ProxySessionManager.QueryResult.NOT_AUTHENTICATED ->
+                        beginLocalAuth(player, loadingTimeoutTask)
+                }
+            }
+            return
+        }
+
+        beginLocalAuth(player, loadingTimeoutTask)
+    }
+
+    /**
+     * 走本地注册状态判定与自动登录/登录/注册流程。
+     */
+    private fun beginLocalAuth(player: Player, loadingTimeoutTask: KaLoginTaskHandle) {
+        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
 
         // 检查玩家是否已注册
         plugin.dbManager.isPlayerRegistered(player.uniqueId).thenAccept { registered ->
@@ -86,10 +114,12 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("login.auto-login-success"))
                         loggedInPlayers[player.uniqueId] = true
                         plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
+                        plugin.proxySessionManager.reportAuth(player)
                         plugin.welcomeManager.showWelcomeIfNeeded(player) {
                             plugin.antiCheatManager.endAuthenticating(player)
                             plugin.emailBindManager.showPromptIfNeeded(player)
                             KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
+                            plugin.lastSeenManager.onAuthenticated(player)
                         }
                     } else {
                             // 关闭加载对话框，显示登录对话框
@@ -138,6 +168,63 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                 }
             }
         }
+    }
+
+    /**
+     * 代理确认已登录：跳过登录/注册，恢复登录态。
+     */
+    private fun restoreProxySession(player: Player) {
+        if (!player.isOnline) return
+        val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
+        plugin.antiCheatManager.markProgrammaticClose(player)
+        plugin.dialogPlatform.close(player)
+        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("proxy.session-restored"))
+        loggedInPlayers[player.uniqueId] = true
+        loginAttempts.remove(player.uniqueId)
+        plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
+        runRestoreTail(player, currentIp)
+    }
+
+    /**
+     * 跨服恢复登录态后的收尾：欢迎、事件动作、邮箱提示与对外事件。
+     */
+    private fun runRestoreTail(player: Player, ip: String) {
+        val tail = Runnable {
+            if (!player.isOnline) return@Runnable
+            if (plugin.antiCheatManager.isAuthenticating(player)) {
+                plugin.antiCheatManager.endAuthenticating(player)
+            }
+            if (plugin.proxySessionManager.isReplayLoginActions()) {
+                plugin.eventActionExecutor.execute(player, "login")
+            }
+            if (plugin.proxySessionManager.isRestoreEmailPrompt()) {
+                plugin.emailBindManager.showPromptIfNeeded(player)
+            }
+            KaLoginAPI.getInstance()?.callPlayerProxyRestore(player, ip)
+            plugin.lastSeenManager.onAuthenticated(player)
+        }
+        if (plugin.proxySessionManager.isRestoreWelcome()) {
+            plugin.welcomeManager.showWelcomeIfNeeded(player) { tail.run() }
+        } else {
+            tail.run()
+        }
+    }
+
+    /**
+     * 代理不可用且配置要求必须走代理时，踢出玩家。
+     */
+    private fun kickProxyUnavailable(player: Player) {
+        plugin.antiCheatManager.markProgrammaticClose(player)
+        plugin.dialogPlatform.close(player)
+        plugin.messageManager.kickPlayer(player, plugin.messageManager.getComponent("proxy.unavailable-kick"))
+        plugin.antiCheatManager.endAuthenticating(player)
+    }
+
+    /**
+     * 标记玩家为已登录（供会话恢复等外部流程使用）。
+     */
+    fun markLoggedIn(uuid: UUID) {
+        loggedInPlayers[uuid] = true
     }
 
     /**
@@ -209,11 +296,14 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                                 plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
                                 // 更新自动登录设置
                                 plugin.dbManager.updateAutoLoginByIp(player.uniqueId, autoLoginCheckbox)
+                                // 上报群组登录会话
+                                plugin.proxySessionManager.reportAuth(player)
                                 plugin.welcomeManager.showWelcomeIfNeeded(player) {
                                     plugin.antiCheatManager.endAuthenticating(player)
                                     plugin.eventActionExecutor.execute(player, "login")
                                     plugin.emailBindManager.showPromptIfNeeded(player)
                                     KaLoginAPI.getInstance()?.callPlayerLoginSuccess(player, currentIp, false)
+                                    plugin.lastSeenManager.onAuthenticated(player)
                                 }
                             } else {
                             val currentAttempts = (loginAttempts[player.uniqueId] ?: 0) + 1
@@ -384,12 +474,15 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.success"))
                             // 标记玩家为已登录
                             loggedInPlayers[player.uniqueId] = true
+                            // 上报群组登录会话
+                            plugin.proxySessionManager.reportAuth(player)
                             val ip = player.address?.address?.hostAddress ?: "127.0.0.1"
                             plugin.welcomeManager.showWelcomeIfNeeded(player) {
                                 plugin.antiCheatManager.endAuthenticating(player)
                                 plugin.eventActionExecutor.execute(player, "register")
                                 plugin.emailBindManager.showPromptIfNeeded(player)
                                 KaLoginAPI.getInstance()?.callPlayerRegisterSuccess(player, ip)
+                                plugin.lastSeenManager.onAuthenticated(player)
                             }
                         } else {
                             plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("register.failed"))

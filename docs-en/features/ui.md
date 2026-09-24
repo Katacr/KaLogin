@@ -15,7 +15,7 @@ plugins/KaLogin/ui/
 | `change-password.yml` | Password change screen |
 | `welcome.yml` | Welcome and terms screen |
 
-These files are generated on first startup. After editing them, run `/kl reload`.
+These files are generated on first startup. UI files are read from disk each time a screen opens, so a saved edit takes effect the next time a player sees that screen. `/kl reload` is not required.
 
 ## Body content
 

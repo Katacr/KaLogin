@@ -45,7 +45,7 @@ Spigot 不支持 Toast 动作。插件会跳过该动作并在控制台记录一
 
 ## 变量
 
-动作中可以使用 `%player_name%` 表示玩家名。
+动作中可以使用 `%player_name%` 或 `{player_name}` 表示玩家名。
 
 示例：
 

@@ -101,6 +101,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
                     KaLoginScheduler.runPlayer(player, Runnable {
                         plugin.dialogPlatform.close(player)
                         plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.success"))
+                        plugin.proxySessionManager.reportPasswordChanged(player)
                         KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
                     })
                 } else {
@@ -109,6 +110,7 @@ class ChangePasswordCommand(private val plugin: KaLogin) : CommandExecutor, TabC
                             if (success) {
                                 plugin.dialogPlatform.close(player)
                                 plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.success"))
+                                plugin.proxySessionManager.reportPasswordChanged(player)
                                 KaLoginAPI.getInstance()?.callPlayerChangePasswordSuccess(player)
                             } else {
                                 plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("change-password.failed"))

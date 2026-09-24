@@ -15,7 +15,7 @@
 | `/kl register <玩家名> <密码>` | 为指定玩家设置或重置密码 |
 | `/kl resetterms <玩家名>` | 重置指定玩家的条款确认状态 |
 | `/kl resetterms all` | 重置所有玩家的条款确认状态 |
-| `/kl reload` | 重载 KaLogin 配置、语言和界面 |
+| `/kl reload` | 重载 KaLogin 配置与语言（界面文件在每次弹出时读取，无需重载） |
 
 ## 玩家命令
 

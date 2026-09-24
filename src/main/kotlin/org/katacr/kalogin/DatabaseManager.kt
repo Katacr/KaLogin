@@ -25,6 +25,8 @@ class DatabaseManager(private val plugin: KaLogin) {
     private val regDateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
 
     private var connection: Connection? = null
+    /** 当前后端是否为 MySQL，用于选择 upsert 语法。 */
+    private var mysql = false
     private val databaseExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "KaLogin-Database").apply {
             isDaemon = true
@@ -41,6 +43,7 @@ class DatabaseManager(private val plugin: KaLogin) {
 
         try {
             if (type == "mysql") {
+                mysql = true
                 val host = config.getString("database.mysql.host")
                 val port = config.getInt("database.mysql.port")
                 val db = config.getString("database.mysql.database")
@@ -89,6 +92,23 @@ class DatabaseManager(private val plugin: KaLogin) {
         """.trimIndent()
 
         connection?.createStatement()?.use { it.execute(sql) }
+
+        // 上次下线位置表（供 KaProxy 读取，跨服共享）。
+        // server 由代理在玩家真正离开时写入；坐标由各后端退服时写入（按 updated_at 单调）。
+        val lastSeenSql = """
+            CREATE TABLE IF NOT EXISTS kalogin_lastseen (
+                uuid VARCHAR(36) PRIMARY KEY,
+                server VARCHAR(64),
+                world VARCHAR(128),
+                x DOUBLE,
+                y DOUBLE,
+                z DOUBLE,
+                yaw FLOAT,
+                pitch FLOAT,
+                updated_at BIGINT
+            );
+        """.trimIndent()
+        connection?.createStatement()?.use { it.execute(lastSeenSql) }
 
         // 检查并添加 last_login_ip 字段（用于数据库升级）
         addColumnIfNotExists("last_login_ip", "VARCHAR(45)")
@@ -559,6 +579,92 @@ class DatabaseManager(private val plugin: KaLogin) {
                 getConnection()?.prepareStatement(sql)?.use { ps ->
                     ps.setString(1, hashedPassword)
                     ps.setString(2, uuid.toString())
+                    ps.executeUpdate() > 0
+                } ?: false
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+
+    /**
+     * 玩家退服时写入坐标与所在子服。
+     *
+     * <p>坐标与 {@code server} 同一条语句原子写入，保证记录自洽（避免出现
+     * “server=lobby 却保存着 pve 坐标”的错配）；代理在真正离开时仍会再写一次
+     * {@code server} 作为权威值，二者一致。
+     *
+     * updated_at 取事件时间戳：切服时源服与目标服的退服/进服事件可能乱序，
+     * 仅在时间戳更新时覆盖，避免旧事件把新位置写回。
+     */
+    fun updateLastSeen(uuid: UUID, server: String, world: String, x: Double, y: Double, z: Double,
+                       yaw: Float, pitch: Float, updatedAt: Long): CompletableFuture<Boolean> {
+        return supplyDb {
+            try {
+                if (mysql) {
+                    // MySQL 的 ON DUPLICATE KEY UPDATE 不支持 WHERE，用 IF 做时间戳守卫（NULL 视为最旧）
+                    val sql = "INSERT INTO kalogin_lastseen (uuid, server, world, x, y, z, yaw, pitch, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE " +
+                        "server = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(server), server), " +
+                        "world = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(world), world), " +
+                        "x = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(x), x), " +
+                        "y = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(y), y), " +
+                        "z = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(z), z), " +
+                        "yaw = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(yaw), yaw), " +
+                        "pitch = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, VALUES(pitch), pitch), " +
+                        "updated_at = IF(updated_at IS NULL OR VALUES(updated_at) >= updated_at, " +
+                        "VALUES(updated_at), updated_at)"
+                    getConnection()?.prepareStatement(sql)?.use { ps ->
+                        ps.setString(1, uuid.toString())
+                        ps.setString(2, server)
+                        ps.setString(3, world)
+                        ps.setDouble(4, x)
+                        ps.setDouble(5, y)
+                        ps.setDouble(6, z)
+                        ps.setFloat(7, yaw)
+                        ps.setFloat(8, pitch)
+                        ps.setLong(9, updatedAt)
+                        ps.executeUpdate()
+                        true
+                    } ?: false
+                } else {
+                    // SQLite：INSERT OR REPLACE 前先判断时间戳，避免覆盖更新的记录
+                    val sql = "INSERT INTO kalogin_lastseen (uuid, server, world, x, y, z, yaw, pitch, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(uuid) DO UPDATE SET server = excluded.server, world = excluded.world, " +
+                        "x = excluded.x, y = excluded.y, z = excluded.z, yaw = excluded.yaw, " +
+                        "pitch = excluded.pitch, updated_at = excluded.updated_at " +
+                        "WHERE excluded.updated_at >= kalogin_lastseen.updated_at"
+                    getConnection()?.prepareStatement(sql)?.use { ps ->
+                        ps.setString(1, uuid.toString())
+                        ps.setString(2, server)
+                        ps.setString(3, world)
+                        ps.setDouble(4, x)
+                        ps.setDouble(5, y)
+                        ps.setDouble(6, z)
+                        ps.setFloat(7, yaw)
+                        ps.setFloat(8, pitch)
+                        ps.setLong(9, updatedAt)
+                        ps.executeUpdate()
+                        true
+                    } ?: false
+                }
+            } catch (e: SQLException) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+
+    /** 删除玩家的上次位置记录（登出/注销时调用）。 */
+    fun deleteLastSeen(uuid: UUID): CompletableFuture<Boolean> {
+        return supplyDb {
+            val sql = "DELETE FROM kalogin_lastseen WHERE uuid = ?"
+            try {
+                getConnection()?.prepareStatement(sql)?.use { ps ->
+                    ps.setString(1, uuid.toString())
                     ps.executeUpdate() > 0
                 } ?: false
             } catch (e: SQLException) {

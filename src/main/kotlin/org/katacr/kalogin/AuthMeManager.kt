@@ -256,6 +256,7 @@ class AuthMeCommandExecutor(private val plugin: KaLogin) : CommandExecutor, TabC
 
         // 使用 AuthMe 注销玩家
         plugin.authMeManager.forceUnregister(playerName)
+        plugin.proxySessionManager.reportUnregister(org.bukkit.Bukkit.getOfflinePlayer(playerName).uniqueId, playerName)
         plugin.messageManager.sendMessage(sender, "authme.delete-success", "player" to playerName)
 
         return true
