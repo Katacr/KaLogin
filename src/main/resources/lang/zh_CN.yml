@@ -167,6 +167,13 @@ welcome:
   must-accept: "&c你需要先阅读并勾选已了解服务器条款，方可继续进行游戏。"
   save-failed: "&c保存条款阅读状态失败，请稍后重试。"
 
+# 上次下线位置（手动模式询问）
+last-seen:
+  dialog-title: "返回上次位置"
+  dialog-body: "检测到你上次在其它服务器离线。是否返回离开时的位置？"
+  confirm-button: "确定"
+  cancel-button: "取消"
+
 email-verification:
   mail-subject: "KaLogin 邮箱验证码"
   mail-body: "您的 KaLogin 验证码是：{code}。如非本人操作请忽略此邮件。"

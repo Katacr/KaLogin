@@ -186,6 +186,28 @@ class SpigotLoginDialogPlatform : LoginDialogPlatform, Listener {
             player.showDialog(noticeDialog(title, body("welcome", player, null, error), inputs, button(plugin.messageManager.getComponent("welcome.confirm-button"), confirm), authDialog = true))
         }
 
+    override fun showLastSeen(
+        player: Player,
+        title: Component,
+        body: List<Component>,
+        confirmLabel: Component,
+        cancelLabel: Component,
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit
+    ) = runPlayer(player) {
+        val confirm = registerCallback(player, emptySet()) { onConfirm() }
+        val cancel = registerCallback(player, emptySet()) { onCancel() }
+        player.showDialog(
+            confirmationDialog(
+                title,
+                body.map { plainMessage(it) },
+                emptyList(),
+                button(confirmLabel, confirm),
+                button(cancelLabel, cancel)
+            )
+        )
+    }
+
     override fun showUserCenter(
         player: Player,
         title: Component,

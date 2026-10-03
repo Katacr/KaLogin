@@ -4,7 +4,7 @@
 
 - 项目路径:`/home/Plugins/KaLogin`
 - 当前版本:`1.5.1`(`build.gradle.kts` / `src/main/resources/plugin.yml`)
-- 最后更新:`2026-09-19`
+- 最后更新:`2026-09-29`
 
 ## 交接文件清单
 
@@ -15,7 +15,7 @@
 | `ui-dialog.md` | UI 与对话框 | Dialog 平台抽象、Paper/Spigot 实现、Body 渲染、消息、配置升级 | 2026-09-19 |
 | `features.md` | 功能模块 | 邮箱绑定/找回、欢迎条款、事件动作、反作弊、PAPI、Geyser、更新检查 | 2026-09-19 |
 | `proxy.md` | 群组服务器跨服登录 | 通过 KaProxy 共享登录会话（协议、接入点、决策、待办） | 2026-09-19 |
-| `lastseen.md` | 上次下线位置 | 通过共享 MySQL 记录并恢复上次下线子服与坐标（坐标后端写库、server 由代理写） | 2026-09-20 |
+| `lastseen.md` | 上次下线位置 | 通过共享 MySQL 记录并恢复上次下线子服与坐标（坐标后端写库、server 由代理写） | 2026-09-29 |
 | `commands-api.md` | 命令与开放 API | 全部命令/权限、KaLoginAPI/KaLoginListener/事件类 | 2026-09-19 |
 | `docs.md` | 文档体系与修复记录 | docs/ 与 docs-en/ 结构、本次修复的文档错误、已知缺口 | 2026-09-19 |
 

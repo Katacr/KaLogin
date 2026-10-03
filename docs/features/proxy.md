@@ -32,7 +32,7 @@ last-seen:
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `proxy.enabled` | `false` | 是否启用群组登录会话。 |
-| `proxy.server-name` | 空 | 本服在代理中的注册名（须与 velocity.toml 一致），用于写上次位置；留空则不记录。 |
+| `proxy.server-name` | 空 | 本服在代理中的注册名（须与 velocity.toml 一致），用于写上次位置；每台后端必须填写自身名称，不能复制 Lobby 的值；留空则不记录。 |
 | `proxy.require-proxy` | `false` | 代理不可用时是否拒绝进入；`false` 时回退本地登录/注册。 |
 | `proxy.query-timeout-ms` | `5000` | 查询代理会话的应答超时（毫秒），超时按代理不可用处理。 |
 | `proxy.query-delay-ticks` | `3` | 进服后延迟多少 tick 再发送查询，避开连接 configuration 阶段的丢包。 |
@@ -58,15 +58,25 @@ last-seen:
 
 ## 自动回到上次位置
 
-启用 `last-seen.enabled` 后，玩家会回到上次下线的子服与坐标，替代每次都从默认服（如 Lobby）开始：
+启用 `last-seen.enabled` 后，玩家会回到上次下线的子服与坐标。行为由 KaProxy 的 `modules.lastseen.mode` 决定（**KaLogin 无需配置模式**）：
 
-1. 玩家退服或切服时，KaLogin 把当前坐标与所在子服名**原子写入共享数据库** `kalogin_lastseen`（不依赖插件消息，因此单人子服退服也能记录）；位于 `last-seen.blacklist` 的子服不写坐标。
-2. 玩家下次连接时，KaProxy 默认开启 `connect-directly`：在登录阶段异步读库，直接把玩家连到上次所在子服，不再先落默认服再切换（避免双重进服）。
-3. 玩家在该子服完成登录/跨服恢复后，KaLogin 通知代理可以前往，该子服把玩家传送到记录的坐标。
-4. 目标世界不存在或坐标越界时，KaProxy 会把玩家回退到其配置的 `default-server`。
-5. `/logout` 或注销会删除位置记录，下次登录从默认流程开始。
+**直接进离线服（`direct`，默认）**
+1. 玩家退服或切服时，KaLogin 把当前坐标与所在子服名**原子写入共享数据库** `kalogin_lastseen`（位于 `last-seen.blacklist` 的子服不写坐标）。
+2. 玩家下次连接时，KaProxy 在登录阶段异步读库，直接把玩家连到上次所在子服，登录完成后传送坐标。
 
-> 直连、黑名单与回退由 KaProxy 的 `modules.lastseen` 控制；位置存于共享 MySQL（与 KaLogin 同一库）。`server` 列由 KaLogin 退服时随坐标一并写入，代理在玩家真正离开时再写一次作为权威值。KaLogin 侧需配置 `proxy.server-name`（须与代理注册名一致）与 `last-seen.blacklist`。
+**手动确定（`manual`）**
+1. 玩家一律先进代理默认服（通常 Lobby）。
+2. 登录完成后 KaProxy 下发 `offer`，KaLogin 延迟 `join-delay-seconds` 秒后弹出"是否返回上次位置"确认框（确定/取消）。
+3. 点"确定"：KaLogin 回传 `confirm`，KaProxy 切回上次子服并传送坐标。
+4. 点"取消"：KaLogin 回传 `decline`，**保留记录**并停留在当前服，下次登录仍会询问。
+
+**间接自动（`auto`）**
+1. 玩家先正常进代理默认服（通常 Lobby）。
+2. 登录成功后，KaProxy 等待 `join-delay-seconds` 秒（给资源包下载留时间）再自动切回上次子服并传送坐标，无询问。
+
+三种模式下，目标世界不存在或坐标越界时 KaProxy 回退 `default-server`；`/logout` 或注销都会删除位置记录。
+
+> 模式、延迟、黑名单与回退均由 KaProxy 的 `modules.lastseen` 控制；位置存于共享 MySQL（与 KaLogin 同一库）。`server` 列由 KaLogin 退服时随坐标一并写入，代理在玩家真正离开时再写一次作为权威值。KaLogin 侧需配置 `proxy.server-name`（须与代理注册名一致）与 `last-seen.blacklist`。群组中每台后端的 `proxy.server-name` 必须不同；把 `lobby` 复制到其他后端会导致“大厅服名 + 子服坐标”的错误回位。
 
 ## 升级注意
 

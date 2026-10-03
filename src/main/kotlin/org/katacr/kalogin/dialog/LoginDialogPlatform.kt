@@ -75,6 +75,20 @@ interface LoginDialogPlatform {
         onSubmit: (WelcomeResponse) -> Unit
     )
 
+    /**
+     * 显示"是否返回上次位置"确认对话框（确定/取消，无输入项）。
+     * 用于手动模式下登录完成后询问玩家。
+     */
+    fun showLastSeen(
+        player: Player,
+        title: Component,
+        body: List<Component>,
+        confirmLabel: Component,
+        cancelLabel: Component,
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit
+    )
+
     fun showUserCenter(
         player: Player,
         title: Component,

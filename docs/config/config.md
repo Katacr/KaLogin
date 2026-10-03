@@ -233,7 +233,7 @@ proxy:
 | 配置项 | 说明 |
 |---|---|
 | `proxy.enabled` | 是否启用群组登录会话 |
-| `proxy.server-name` | 本服在代理中的注册名（须与 velocity.toml 一致），用于写上次位置；留空不记录 |
+| `proxy.server-name` | 本服在代理中的注册名（须与 velocity.toml 一致），用于写上次位置；每台后端必须各自填写其真实名称，不能由 Lobby 配置复制；留空不记录 |
 | `proxy.require-proxy` | 代理不可用时是否拒绝进入 |
 | `proxy.query-timeout-ms` | 会话查询应答超时(毫秒) |
 | `proxy.query-delay-ticks` | 进服后延迟查询的 tick 数 |

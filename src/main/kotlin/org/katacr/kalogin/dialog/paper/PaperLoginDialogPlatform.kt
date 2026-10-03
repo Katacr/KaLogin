@@ -236,6 +236,27 @@ class PaperLoginDialogPlatform : LoginDialogPlatform {
             )
         }
 
+    override fun showLastSeen(
+        player: Player,
+        title: Component,
+        body: List<Component>,
+        confirmLabel: Component,
+        cancelLabel: Component,
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit
+    ) = runPlayer(player) {
+        val bodyList = body.map { DialogBody.plainMessage(it) }
+        player.showDialog(
+            confirmationDialog(
+                title,
+                bodyList,
+                emptyList(),
+                ActionButton.builder(confirmLabel).action(callback { onConfirm() }).build(),
+                ActionButton.builder(cancelLabel).action(callback { onCancel() }).build()
+            )
+        )
+    }
+
     override fun showUserCenter(
         player: Player,
         title: Component,

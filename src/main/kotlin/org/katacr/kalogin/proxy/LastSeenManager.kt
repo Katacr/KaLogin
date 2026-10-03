@@ -5,6 +5,7 @@ import org.bukkit.entity.Player
 import org.bukkit.plugin.messaging.PluginMessageListener
 import org.katacr.kalogin.KaLogin
 import org.katacr.kalogin.KaLoginScheduler
+import org.katacr.kalogin.KaLoginTaskHandle
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -27,6 +28,8 @@ class LastSeenManager(private val plugin: KaLogin) : PluginMessageListener {
     private var blacklist: List<String> = emptyList()
     private val pendingTeleports = ConcurrentHashMap<UUID, PendingTeleport>()
     private val suppressUpdate = ConcurrentHashMap.newKeySet<UUID>()
+    // 手动模式下已下发、等待延迟弹窗的任务（退服/登出时取消）
+    private val pendingOffers = ConcurrentHashMap<UUID, KaLoginTaskHandle>()
 
     /** 注册通道（仅在同时启用 proxy 与 last-seen 时）。 */
     fun init() {
@@ -61,6 +64,8 @@ class LastSeenManager(private val plugin: KaLogin) : PluginMessageListener {
         }
         pendingTeleports.clear()
         suppressUpdate.clear()
+        pendingOffers.values.forEach { it.cancel() }
+        pendingOffers.clear()
         enabled = false
     }
 
@@ -72,27 +77,79 @@ class LastSeenManager(private val plugin: KaLogin) : PluginMessageListener {
         }
         try {
             val packet = ProxyProtocol.decode(message)
-            if (packet.module != "lastseen" || packet.action != "teleport") {
+            if (packet.module != "lastseen") {
                 return
             }
-            val uuid = ProxyProtocol.readUuid(packet.input)
-            val world = packet.input.readUTF()
-            val x = packet.input.readDouble()
-            val y = packet.input.readDouble()
-            val z = packet.input.readDouble()
-            val yaw = packet.input.readFloat()
-            val pitch = packet.input.readFloat()
-            pendingTeleports[uuid] = PendingTeleport(
-                world, x, y, z, yaw, pitch, System.currentTimeMillis() + PENDING_TTL_MILLIS
-            )
-            // 玩家已在线且已完成认证时立即应用；否则等认证完成后的 onAuthenticated
-            val online = plugin.server.getPlayer(uuid)
-            if (online != null && !plugin.antiCheatManager.isAuthenticating(online)) {
-                KaLoginScheduler.runPlayer(online, Runnable { applyPending(online) })
+            when (packet.action) {
+                "teleport" -> handleTeleport(packet.input)
+                "offer" -> handleOffer(packet.input)
             }
         } catch (error: Exception) {
             plugin.logger.warning("解析 KaLogin 位置数据包失败: ${error.message}")
         }
+    }
+
+    private fun handleTeleport(input: java.io.DataInputStream) {
+        val uuid = ProxyProtocol.readUuid(input)
+        val world = input.readUTF()
+        val x = input.readDouble()
+        val y = input.readDouble()
+        val z = input.readDouble()
+        val yaw = input.readFloat()
+        val pitch = input.readFloat()
+        pendingTeleports[uuid] = PendingTeleport(
+            world, x, y, z, yaw, pitch, System.currentTimeMillis() + PENDING_TTL_MILLIS
+        )
+        // 玩家已在线且已完成认证时立即应用；否则等认证完成后的 onAuthenticated
+        val online = plugin.server.getPlayer(uuid)
+        if (online != null && !plugin.antiCheatManager.isAuthenticating(online)) {
+            KaLoginScheduler.runPlayer(online, Runnable { applyPending(online) })
+        }
+    }
+
+    /**
+     * 手动模式：代理询问是否返回上次位置。延迟 delaySeconds 后弹出确认框，
+     * 玩家点击“确定”回传 `confirm`（由代理切服并投递坐标），点击“取消”回传 `decline`。
+     */
+    private fun handleOffer(input: java.io.DataInputStream) {
+        val uuid = ProxyProtocol.readUuid(input)
+        val delaySeconds = input.readInt()
+        input.readUTF() // 目标子服名，仅作提示，代理侧仍会重新读取记录
+        val player = plugin.server.getPlayer(uuid) ?: return
+        pendingOffers.remove(uuid)?.cancel()
+        val task = KaLoginScheduler.runPlayerLater(player, delaySeconds * 20L) {
+            pendingOffers.remove(uuid)
+            if (!player.isOnline) {
+                return@runPlayerLater
+            }
+            showLastSeenConfirm(player)
+        }
+        pendingOffers[uuid] = task
+    }
+
+    /** 弹出“是否返回上次位置”确认框（认证期间旋转视角被反作弊重弹时也会调用）。 */
+    fun showLastSeenConfirm(player: Player) {
+        plugin.antiCheatManager.setPlayerDialogType(player, "last-seen")
+        plugin.antiCheatManager.markDialogOpened(player)
+        plugin.dialogPlatform.showLastSeen(
+            player,
+            plugin.messageManager.getComponent("last-seen.dialog-title"),
+            listOf(plugin.messageManager.getComponent("last-seen.dialog-body")),
+            plugin.messageManager.getComponent("last-seen.confirm-button"),
+            plugin.messageManager.getComponent("last-seen.cancel-button"),
+            onConfirm = {
+                plugin.antiCheatManager.markDialogClosed(player)
+                plugin.antiCheatManager.markProgrammaticClose(player)
+                plugin.dialogPlatform.close(player)
+                send(player, "confirm") { output -> ProxyProtocol.writeUuid(output, player.uniqueId) }
+            },
+            onCancel = {
+                plugin.antiCheatManager.markDialogClosed(player)
+                plugin.antiCheatManager.markProgrammaticClose(player)
+                plugin.dialogPlatform.close(player)
+                send(player, "decline") { output -> ProxyProtocol.writeUuid(output, player.uniqueId) }
+            }
+        )
     }
 
     /** 认证完成后的收尾：应用预留传送并通知代理可以前往。 */
@@ -110,6 +167,7 @@ class LastSeenManager(private val plugin: KaLogin) : PluginMessageListener {
             return
         }
         pendingTeleports.remove(player.uniqueId)
+        pendingOffers.remove(player.uniqueId)?.cancel()
         // 登出/注销已使会话失效，位置记录由代理清除，本次退服不再写库以免复活记录
         if (suppressUpdate.remove(player.uniqueId)) {
             return
@@ -130,6 +188,7 @@ class LastSeenManager(private val plugin: KaLogin) : PluginMessageListener {
         }
         for (player in plugin.server.onlinePlayers) {
             pendingTeleports.remove(player.uniqueId)
+            pendingOffers.remove(player.uniqueId)?.cancel()
             if (suppressUpdate.remove(player.uniqueId)) {
                 continue
             }

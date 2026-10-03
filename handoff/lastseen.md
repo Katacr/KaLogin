@@ -28,11 +28,23 @@
 
 ## 协议(module=lastseen)
 
-后端 → 代理:`ready`(uuid)、`abort`(uuid)
+后端 → 代理:`ready`(uuid)、`abort`(uuid)、`confirm`(uuid)、`decline`(uuid)
 
-代理 → 目标后端:`teleport`(uuid,world,x,y,z,yaw,pitch)
+代理 → 目标后端:`teleport`(uuid,world,x,y,z,yaw,pitch)、`offer`(uuid,delaySeconds,targetServer)
 
-> 坐标不再经代理中转:后端直接写库,代理只读。
+> 坐标不再经代理中转:后端直接写库,代理只读。`offer`/`confirm`/`decline` 仅手动模式使用。
+
+## 手动模式(2026-09-30)
+
+- 模式开关在 **KaProxy** 的 `modules.lastseen.mode`(auto/manual),后端无需配置。
+- 后端 `LastSeenManager` 新增:
+  - `handleOffer`:`onPluginMessageReceived` 收到 `offer` 后,按 `join-delay-seconds` 延迟弹窗(用于先下载资源包)。
+  - `showLastSeenConfirm`:调用 `dialogPlatform.showLastSeen(...)` 弹"确定/取消"确认框;确定回传 `confirm`,取消回传 `decline`。
+  - `pendingOffers` 记录延迟任务,退服/停服时取消。
+- `LoginDialogPlatform` 新增 `showLastSeen(player,title,body,confirmLabel,cancelLabel,onConfirm,onCancel)`;Paper 走 `confirmationDialog`,Spigot 走 `ConfirmationDialog`。
+- 反作弊 `resendDialog` 新增 `"last-seen"` 分支(认证期间旋转视角会重弹)。
+- 语言新增 `last-seen.{dialog-title,dialog-body,confirm-button,cancel-button}`(中英)。
+- 取消后**保留记录**,下次登录仍询问。
 
 ## 关键决策
 
@@ -50,11 +62,15 @@
 - 后端 `proxy.server-name` 必须配置且与代理注册名一致,否则记录不可用。
 - 配置升级(12→13)会自动补全新键并保留用户值;但**新增的 `server-name` 默认空**,需手动填写。
 
+## 修复记录(2026-09-29)
+
+- **后端配置未实际生效**:排查真实运行配置发现 PVE/PVP/Survival1/Survival2/Resource1/Resource2 的 `proxy.server-name` 都仍为 `lobby`，与此前部署记录不符。故子服退服会原子写入 `server=lobby` 加子服坐标，重登时正确读取了错误服名而落到 Lobby 的同坐标。已按 Velocity `[servers]` 注册名改为 `pve`/`pvp`/`survival1`/`survival2`/`resource1`/`resource2` 并完成对应后端重启；旧记录不批量删除，新一次离线会覆盖该玩家记录。
+
 ## 修复记录(2026-09-23)
 
 - **停服不保存坐标**:`onDisable` 直接 `dbManager.close()`,若 `PlayerQuitEvent` 晚于停服回调触发,异步写被已关闭的执行器丢弃。修复:`KaLogin.onDisable` 先调用 `LastSeenManager.reportAllOnline()`(遍历在线玩家写库),再 `shutdown()`,由 `dbManager.close()` 的 `awaitTermination(5s)` 等待落盘。
 - **黑名单离开残留错误坐标**:后端 `updateLastSeen` 只写坐标不写 `server`,且不区分黑名单;代理在离开黑名单服时 `delete()` 后,后端稍后的坐标写又会 `INSERT` 重建该行(`server` 仍 NULL)。之后在 lobby 正常退出时,代理 `saveServer("lobby")` 只改 `server` 列,PVE 坐标被保留 → 下次登录“server=lobby + PVE 坐标”落到 lobby 错误位置。修复:①后端 `updateLastSeen` **原子写入 `server` 列**(取 `proxy.server-name`),记录自洽;②新增 `last-seen.blacklist`,黑名单服退服**不写坐标**,代理离开时 `delete()` 后不再被重建;下次登录无记录 → 回默认服出生点。
-- **`proxy.server-name` 全服错配**:7 台后端 `KaLogin/config.yml` 的 `proxy.server-name` 均为 `lobby`,导致非 Lobby 服写入错误的 server。已逐服修正为各自代理注册名(见 `/home/Server/handoff/plugin-sync.md`)。
+- **`proxy.server-name` 全服错配**:7 台后端 `KaLogin/config.yml` 的 `proxy.server-name` 均为 `lobby`,导致非 Lobby 服写入错误的 server。此前部署记录误称已修正；实际配置于 2026-09-29 按各自代理注册名完成核正与重启(见 `/home/Server/handoff/plugin-sync.md`)。
 - **数据清理**:删除 `kalogin_lastseen` 中 `server IS NULL/''` 的残留行(副本坐标)。
 
 ## 当前待办

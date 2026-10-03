@@ -167,6 +167,13 @@ welcome:
   must-accept: "&cYou must read and accept the server terms before continuing."
   save-failed: "&cFailed to save your terms confirmation. Please try again later."
 
+# Last seen position (manual mode prompt)
+last-seen:
+  dialog-title: "Return to Last Position"
+  dialog-body: "You were last online on another server. Return to where you left off?"
+  confirm-button: "Confirm"
+  cancel-button: "Cancel"
+
 email-verification:
   mail-subject: "KaLogin Email Verification Code"
   mail-body: "Your KaLogin verification code is: {code}. If this was not you, please ignore this email."

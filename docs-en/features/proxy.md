@@ -32,7 +32,7 @@ last-seen:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `proxy.enabled` | `false` | Enables the cross-server login session. |
-| `proxy.server-name` | empty | This backend's registered proxy name (must match velocity.toml); used for last-position writes. Empty means no recording. |
+| `proxy.server-name` | empty | This backend's registered proxy name (must match velocity.toml); used for last-position writes. Every backend must use its own name and must not copy Lobby's value. Empty means no recording. |
 | `proxy.require-proxy` | `false` | Reject entry when the proxy is unavailable; when `false`, fall back to local login/registration. |
 | `proxy.query-timeout-ms` | `5000` | Response timeout for the session query (ms); a timeout is treated as proxy unavailable. |
 | `proxy.query-delay-ticks` | `3` | Ticks to wait after join before sending the query, avoiding packet loss during the configuration phase. |
@@ -58,15 +58,25 @@ last-seen:
 
 ## Returning to the Last Position
 
-With `last-seen.enabled`, a player returns to the server and coordinates where they last logged off, instead of always starting on the default server (for example, Lobby):
+With `last-seen.enabled`, a player returns to the server and coordinates where they last logged off. The behavior is controlled by KaProxy's `modules.lastseen.mode` (**KaLogin needs no mode configuration**):
 
-1. When the player leaves or switches a backend, KaLogin writes the current coordinates **and the backend name atomically into the shared database** `kalogin_lastseen` (no plugin-message carrier, so even the last player on a backend is recorded); backends in `last-seen.blacklist` store no coordinates.
-2. On the next connection, KaProxy's `connect-directly` (enabled by default) reads the database asynchronously during login and sets the initial server to the last backend, instead of landing on the default server first (avoiding the double join).
-3. After the player logs in or restores the session on that backend, KaLogin tells the proxy it may travel, and that backend teleports the player to the stored coordinates.
-4. If the target world does not exist or the coordinates are out of range, KaProxy moves the player to its configured `default-server`.
-5. `/logout` and unregister delete the stored position, so the next login follows the default flow.
+**Direct (`direct`, default)**
+1. When the player leaves or switches a backend, KaLogin writes the current coordinates **and the backend name atomically into the shared database** `kalogin_lastseen` (backends in `last-seen.blacklist` store no coordinates).
+2. On the next connection, KaProxy reads the DB asynchronously during login and connects the player straight to the last backend, then teleports after login.
 
-> Direct connect, blacklist, and fallback are controlled by KaProxy's `modules.lastseen`. Positions live in the shared MySQL database (same DB as KaLogin); the `server` column is written by KaLogin together with the coordinates on quit, and the proxy writes it again on a true disconnect as the authoritative value. KaLogin needs `proxy.server-name` (matching the proxy registration name) and `last-seen.blacklist`.
+**Manual (`manual`)**
+1. The player always lands on the proxy's default server (usually Lobby).
+2. After login KaProxy sends `offer`; KaLogin waits `join-delay-seconds` and then shows a "return to last position?" confirmation (Confirm/Cancel).
+3. Confirm → KaLogin replies `confirm`; KaProxy switches back and teleports.
+4. Cancel → KaLogin replies `decline`; the record is **kept** and the player stays, so the prompt appears again next login.
+
+**Auto (`auto`)**
+1. The player lands on the default server (usually Lobby) as normal.
+2. After login KaProxy waits `join-delay-seconds` (time for the resource pack) and then automatically switches back and teleports. No prompt.
+
+In all three modes, if the target world is invalid or the coordinates are out of range KaProxy falls back to `default-server`; `/logout` and unregister delete the stored position.
+
+> Mode, delay, blacklist, and fallback are controlled by KaProxy's `modules.lastseen`. Positions live in the shared MySQL database (same DB as KaLogin); the `server` column is written by KaLogin together with the coordinates on quit, and the proxy writes it again on a true disconnect as the authoritative value. KaLogin needs `proxy.server-name` (matching the proxy registration name) and `last-seen.blacklist`. Each backend in a network must use a distinct `proxy.server-name`; copying `lobby` to another backend creates an invalid “Lobby server + backend coordinates” return record.
 
 ## Upgrade Note
 

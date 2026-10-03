@@ -193,6 +193,7 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
                 "login" -> plugin.showLoginDialogForPlayer(player)
                 "register" -> plugin.showRegisterDialogForPlayer(player)
                 "welcome" -> plugin.showWelcomeDialogForPlayer(player)
+                "last-seen" -> plugin.lastSeenManager.showLastSeenConfirm(player)
             }
         })
     }

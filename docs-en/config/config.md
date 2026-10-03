@@ -233,7 +233,7 @@ proxy:
 | Option | Description |
 |---|---|
 | `proxy.enabled` | Enable the cross-server login session |
-| `proxy.server-name` | This backend's registered proxy name (must match velocity.toml); used for last-position writes. Empty means no recording |
+| `proxy.server-name` | This backend's registered proxy name (must match velocity.toml); every backend must use its own actual name and must not copy Lobby's value. Empty means no recording |
 | `proxy.require-proxy` | Reject entry when the proxy is unavailable |
 | `proxy.query-timeout-ms` | Session query response timeout (ms) |
 | `proxy.query-delay-ticks` | Ticks to wait after join before querying |
