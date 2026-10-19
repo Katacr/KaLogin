@@ -30,6 +30,8 @@ events:
 
 Spigot 不支持 Toast 动作。插件会跳过该动作并在控制台记录一次提示；需要兼容所有核心时请使用 `tell:`。
 
+内置认证模式的同 IP 自动登录默认不执行 `events.login`。如需执行完整动作队列，可将 `login.execute-events-on-auto-login` 设为 `true`；队列可能在每次同 IP 自动登录时重复执行。代理跨服恢复使用独立配置 `proxy.replay-login-actions`。
+
 ## Toast 参数
 
 ```yaml

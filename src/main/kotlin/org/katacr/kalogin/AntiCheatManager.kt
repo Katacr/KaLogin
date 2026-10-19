@@ -25,9 +25,6 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
     // 跟踪需要认证的玩家（未登录或未注册）
     private val authenticatingPlayers = ConcurrentHashMap<UUID, Player>()
 
-    // 保存玩家的登录前游戏模式
-    private val playerGameModes = ConcurrentHashMap<UUID, org.bukkit.GameMode>()
-
     // 保存认证期间的锁定位置（含朝向）
     private val lockedLocations = ConcurrentHashMap<UUID, Location>()
 
@@ -54,9 +51,6 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
      */
     fun startAuthenticating(player: Player) {
         val uuid = player.uniqueId
-
-        // 保存游戏模式
-        playerGameModes[uuid] = player.gameMode
 
         // 记录认证期间的锁定位置（包括视角）
         lockedLocations[uuid] = player.location.clone()
@@ -100,13 +94,11 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         player.removePotionEffect(org.bukkit.potion.PotionEffectType.DARKNESS)
         player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS)
 
-        // 恢复认证前的游戏模式
-        player.gameMode = playerGameModes[uuid] ?: org.bukkit.GameMode.SURVIVAL
+        // 认证期间未修改游戏模式；保持当前值，由服务器或其他插件决定。
+        // 玩家可能已在认证期间跨世界传送，写回进服时的旧模式会覆盖目标世界的规则。
         player.flySpeed = 0.1f
         player.walkSpeed = 0.2f
 
-        // 清理游戏模式缓存
-        playerGameModes.remove(uuid)
         lockedLocations.remove(uuid)
 
         // 清理数据
@@ -509,7 +501,6 @@ class AntiCheatManager(private val plugin: KaLogin) : Listener {
         authenticatingPlayers.clear()
         openedAuthDialogs.clear()
         programmaticClosePlayers.clear()
-        playerGameModes.clear()
         lockedLocations.clear()
         loginTimeoutTasks.clear()
         registerTimeoutTasks.clear()

@@ -21,8 +21,10 @@
 - `logout`：uuid —— `/logout` 或 `KaLoginAPI.logout`。
 - `unregister`：uuid、name —— 注销账户（管理员代发时取首个在线玩家作载体）。
 - `password_changed`：uuid —— 改密/找回密码成功。
+- `login_failed`：uuid、IP —— 每次密码校验失败上报代理，用于按来源 IP 临时封禁。
 
 代理 → 来源后端：`session`：uuid、authenticated、name、authTime、loginIp、reason。
+代理 → 受害者所在后端：`security_alert`：目标 uuid/name 与攻击 IP；KaLogin 在后端按 UUID 单人提示。
 
 ## 接入点
 
@@ -41,6 +43,8 @@
 - **IP 绑定在代理侧**：后端只上报 IP，代理按 `bind-ip` 校验，避免后端各自为政。
 - **跨服恢复收尾可配置**：`restore-welcome`（按 DB 条款）、`restore-email-prompt`（默认不重复）、`replay-login-actions`（默认不重放）。
 - **AuthMe 恢复**：目标服 `forceLogin` 并用 `proxyRestoredPlayers` 短路 `LoginEvent`，避免重复欢迎/事件；`forceLogin` 失败则回退本地界面。
+- **安全告警（2026-10-14）**：Velocity `CONFLICTING_LOGIN` 表示同名新连接被拒；KaProxy 只在存活玩家有已认证会话时告警，按 UUID 冷却 600 秒，并将告警单播至玩家所在后端。KaLogin 后端由 `proxy.security-alert` 渲染展示，不包含攻击者 IP。
+- **失败 IP 封禁（2026-10-14）**：内置登录与 AuthMe 模式每次密码错误均报告来源 IP；幸存连接已认证的冲突登录也计入，未认证占位连接不计（避免把正版被拒 IP 误计为攻击）。KaProxy 默认 10 分钟内累计 10 次失败后，在代理内临时封禁该 IP 30 分钟，并于 PreLogin 阶段拒绝。计数/封禁仅在代理内存，代理重启后清空。
 
 ## 踩过的坑
 
@@ -52,6 +56,8 @@
 
 ## 当前待办
 
-- [ ] 端到端联调（真实 Velocity/BungeeCord + 两个子服 + 共享 MySQL）尚未执行，仅完成编译与单元级验证。
+- **2026-10-16 认证就绪事件（已部署七服）**：新增 Bukkit `PlayerAuthenticationReadyEvent`，由 `LastSeenManager.onAuthenticated` 在本地上次位置处理后发布；即使 `last-seen.enabled: false` 也发布。KaTpa 可选监听并结合 `KaLoginAPI.isPlayerLoggedIn`/`AntiCheatManager.isAuthenticating` 等待跨服落点。代理端异步 last-seen 后续切服不由此事件保证完成；待真实玩家联测。
+
+- [ ] 端到端联调（真实 Velocity + 后端 + 共享 MySQL）尚未执行；KaLogin 与 KaProxy 已构建，KaProxy 单元测试通过。
 - [ ] `safer` 化:考虑会话变更时由代理向其它子服广播失效，清理潜在陈旧状态。
 - [ ] 可选:跨服恢复时按会话去重邮箱提示的持久化（目前默认不重复即可）。

@@ -61,6 +61,9 @@ class ProxySessionManager(private val plugin: KaLogin) : PluginMessageListener {
     /** 是否应在跨服恢复时按条款状态弹欢迎界面。 */
     fun isRestoreWelcome(): Boolean = plugin.config.getBoolean("proxy.restore-welcome", true)
 
+    /** 跨服恢复登录态时是否发送"已自动登录"提示语。 */
+    fun isRestoreMessage(): Boolean = plugin.config.getBoolean("proxy.restore-message", true)
+
     /** 跨服恢复时是否重复弹邮箱绑定提示。 */
     fun isRestoreEmailPrompt(): Boolean = plugin.config.getBoolean("proxy.restore-email-prompt", false)
 
@@ -129,15 +132,41 @@ class ProxySessionManager(private val plugin: KaLogin) : PluginMessageListener {
         }
         try {
             val packet = ProxyProtocol.decode(message)
-            if (packet.module != "kalogin" || packet.action != "session") {
+            if (packet.module != "kalogin") {
                 return
             }
-            val uuid = ProxyProtocol.readUuid(packet.input)
-            val authenticated = packet.input.readBoolean()
-            complete(uuid, if (authenticated) QueryResult.AUTHENTICATED else QueryResult.NOT_AUTHENTICATED)
+            when (packet.action) {
+                "session" -> {
+                    val uuid = ProxyProtocol.readUuid(packet.input)
+                    val authenticated = packet.input.readBoolean()
+                    complete(uuid, if (authenticated) QueryResult.AUTHENTICATED else QueryResult.NOT_AUTHENTICATED)
+                }
+                "security_alert" -> handleSecurityAlert(player, packet.input)
+                else -> Unit
+            }
         } catch (error: Exception) {
             plugin.logger.warning("解析 KaLogin 群组会话数据包失败: ${error.message}")
         }
+    }
+
+    /**
+     * 处理代理转发的安全告警：他人尝试登录本账户。
+     *
+     * 代理已按玩家做冷却，这里只负责按 UUID 定位在线玩家并提示。
+     */
+    private fun handleSecurityAlert(carrier: Player, input: java.io.DataInputStream) {
+        val uuid = ProxyProtocol.readUuid(input)
+        input.readUTF()  // playerName（展示用代理已按需，不依赖）
+        input.readUTF()  // attackerIp（按需求不在文案中展示）
+        // Plugin messages use the target player's own backend connection as carrier.
+        // Ignore client-forged security_alert packets targeting another UUID.
+        if (carrier.uniqueId != uuid) return
+        val target = plugin.server.getPlayer(uuid) ?: return
+        KaLoginScheduler.runPlayer(target, Runnable {
+            if (target.isOnline) {
+                plugin.messageManager.sendMessage(target, "proxy.security-alert")
+            }
+        })
     }
 
     /** 登录/注册成功：建立或刷新代理会话。 */
@@ -179,6 +208,36 @@ class ProxySessionManager(private val plugin: KaLogin) : PluginMessageListener {
                 }
             }
         })
+    }
+
+    /**
+     * 登录失败：上报代理按来源 IP 累计，达阈值时由代理临时封禁该 IP。
+     *
+     * 直接在当前玩家线程发送，不走延迟调度：最后一次失败后玩家会被立刻踢出，
+     * 延迟发送会因玩家离线而丢包。
+     */
+    fun reportLoginFailed(player: Player) {
+        if (!enabled || !player.isOnline) {
+            return
+        }
+        val ip = currentIp(player)
+        val task = Runnable {
+            if (!player.isOnline) return@Runnable
+            try {
+                val packet = ProxyProtocol.encode("kalogin", "login_failed") { output ->
+                    ProxyProtocol.writeUuid(output, player.uniqueId)
+                    output.writeUTF(ip)
+                }
+                player.sendPluginMessage(plugin, ProxyProtocol.CHANNEL, packet)
+            } catch (error: Exception) {
+                plugin.logger.warning("发送 KaLogin 登录失败上报失败: ${error.message}")
+            }
+        }
+        if (KaLoginScheduler.isPlayerThread(player)) {
+            task.run()
+        } else {
+            KaLoginScheduler.runPlayer(player, task)
+        }
     }
 
     /** 改密成功：刷新代理会话时间，保持当前登录态。 */

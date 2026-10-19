@@ -2,6 +2,8 @@
 
 KaLogin can share login state across a proxy network (Velocity / BungeeCord) through KaProxy: after a player logs in on any backend, switching to another backend does not require logging in again.
 
+After authentication finalization (including any local last-seen application), KaLogin fires the Bukkit `org.katacr.kalogin.listener.PlayerAuthenticationReadyEvent`. It covers built-in/AuthMe and manual/automatic/proxy-restored logins. It does not guarantee completion of a later asynchronous proxy-side last-seen transfer; cross-server arrivals still require their own acknowledgement.
+
 ## Requirements
 
 - KaProxy is installed on the proxy with `modules.kalogin` enabled (see the KaProxy documentation).
@@ -55,6 +57,14 @@ last-seen:
 - The session is bound to the login IP (controlled by KaProxy's `bind-ip`); restore is rejected when the IP changes.
 - In AuthMe mode the destination backend restores the AuthMe login state, so all AuthMe databases must be consistent.
 - When the proxy is unavailable and `require-proxy: true`, the player is kicked; otherwise KaLogin falls back to the local flow.
+- `proxy.replay-login-actions` controls replaying `events.login` on proxy session restore only; same-IP local auto login is controlled separately by `login.execute-events-on-auto-login`.
+
+## Security Alerts and Temporary IP Bans
+
+Together with KaProxy's `modules.kalogin.security-alert` and `modules.kalogin.ip-ban` settings:
+
+- **Security alert:** When another connection attempts to log into an account that already has an authenticated session, KaProxy sends a targeted alert to the still-online player. KaLogin renders it with `proxy.security-alert`, advising them to change their password. Alerts have a per-player cooldown to prevent spam.
+- **Temporary IP ban:** KaLogin reports each incorrect password attempt to KaProxy. A rejected conflicting login also counts when the surviving session is authenticated; conflicts against an unauthenticated placeholder are excluded to avoid banning the rejected legitimate player's IP. The proxy counts failures by source IP; once the configured threshold is reached within the window, it temporarily bans that IP and rejects its next connection during proxy pre-login.
 
 ## Returning to the Last Position
 

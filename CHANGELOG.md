@@ -1,5 +1,10 @@
 # 更新日志
 
+## v1.5.2
+
+### 新增
+- **同 IP 自动登录动作队列开关**：新增 `login.execute-events-on-auto-login`，允许配置同 IP 自动登录成功后是否执行 `events.login`，默认关闭以保持旧行为。
+
 ## v1.4.0
 
 ### 新增

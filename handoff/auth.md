@@ -18,7 +18,7 @@
   2. 启动加载兜底超时 `login.loading-timeout`(默认 15s),超时踢出(`:50-58`)。
   3. 异步 `isPlayerRegistered`(`:61`):
      - 返回 `null`(查询失败)→ 踢出,避免误弹注册框(`:65-76`)。
-     - 已注册 → 异步 `canAutoLogin`(`:80`):命中同 IP 自动登录则免密登录(`:82-93`),否则 `showLoginDialogDelayed`(`:99`)。
+      - 已注册 → 异步 `canAutoLogin`(`:80`):命中同 IP 自动登录则免密登录(`:82-93`);`login.execute-events-on-auto-login: true` 时认证收尾执行完整 `events.login` 动作队列，否则保持旧行为；未命中则 `showLoginDialogDelayed`(`:99`)。
      - 未注册 → 校验 `login.max-accounts-per-ip` + `countAccountsByIp`,超限踢出,否则注册框(`:104-138`)。
 - 登录对话框 `showLoginDialog`(`:146`):启动 `login.login-timeout`(`:162-170`)、校验最大尝试次数(`:173-180`);`loginAction` 异步 `verifyPassword`(`:192`);成功写 `last_login_ip`/`auto_login_by_ip`、欢迎、`endAuthenticating`、执行 `events.login`、邮箱提示、`callPlayerLoginSuccess(...,false)`(`:194-217`);失败递增 `loginAttempts`(`:218-232`)。
 - 注册对话框 `showRegisterDialog`(`:316`):启动 `login.register-timeout`(`:332-340`);校验空密码 / `PasswordValidator.validate` / 两次一致(`:346-362`);异步 `registerPlayer`(`:373`);成功同样走欢迎与 `events.register`(`:380-393`)。
@@ -71,6 +71,8 @@
 
 - 存储于 `last_login_ip` + `auto_login_by_ip`(`DatabaseManager.kt:230/281`)。
 - 内置模式通过 `canAutoLogin` 命中后免密登录(`LoginListener.kt:80-93`)。
+- 新增配置 `login.execute-events-on-auto-login`（默认 `false`），只控制内置模式的同 IP 自动登录是否执行完整 `events.login`；动作包含的计时、奖励、命令等可能每次自动登录重复运行。
+- 2026-10-19：KaLogin 1.5.2 已部署到七服，配置版本升至 16。七服 `login.execute-events-on-auto-login: true`；此项只处理同 IP 认证登录，七服 `proxy.replay-login-actions: false`，代理切服恢复不重放 `events.login`。Lobby `events.login` 另调用 `notifications/login`，通知功能见 `/home/Server/Lobby/handoff/notifications.md`。
 - AuthMe 模式的勾选值仍写入数据库(`AuthMeLoginListener.kt:290`),但 `canAutoLogin` **从不被调用**,实际自动登录由 AuthMe session 机制处理(`RestoreSessionEvent` + `onAuthMeLogin` session 分支)。
 
 ### 线程模型与 Folia
@@ -83,6 +85,7 @@
 ## 关键决策与原因
 
 - **认证与会话解耦**:`authenticatingPlayers` 独立于登录态,便于反作弊拦截未登录玩家。
+- **认证阶段不恢复游戏模式（2026-10-14）**：确认全项目唯一 `setGameMode` 位于 `AntiCheatManager.endAuthenticating`；`startAuthenticating` 只记录旧模式而从未更改它。无条件恢复会覆盖认证期间服务器或其他插件设置的模式：跨服 `/warp` 到 Lobby 时若玩家先在 `world`（adventure）进入，后由 KaTpa 落到 `plot`（survival），Multiverse 的世界切换强制模式可能被 KaLogin 的旧快照覆盖。删除无作用的游戏模式快照/恢复，不依赖 MV、HuskSync，也不硬编码任何世界；单服/无世界管理插件保持玩家当前模式，认证中的跨世界切换保留世界管理器结果。速度/负面效果的既有防护流程不变。
 - **内置模式对 DB 查询失败零容忍**:`isPlayerRegistered==null` 时直接踢出,避免把查询失败误判为"未注册"而弹注册框。
 - **AuthMe 模式把登录判定完全交给 AuthMe**,KaLogin 只做 UI 与扩展数据,降低与 AuthMe 的耦合风险。
 
@@ -101,6 +104,9 @@
 
 ## 当前待办
 
+- [x] 2026-10-19 将 `build/libs/KaLogin-1.5.2.jar` 部署到七服，旧 JAR 按 `.backup-notice-20261019-144640` 备份；20 秒错峰重启与版本验证见 `/home/Server/handoff/reward-notifications-rollout.md`。
+- [x] 同 IP 自动登录增加 `login.execute-events-on-auto-login` 布尔项（默认关闭）；Gradle build 成功，当前项目无 `src/test` 测试源。
+- [ ] 已于 2026-10-14 将修复部署到七台后端并按 20 秒错峰重启，七服 KaLogin 1.5.1 均正常启用（详见 `/home/Server/handoff/plugin-sync.md`）；仍须用真实玩家从其他子服 `/warp 社区` 验证 Lobby `plot` 为 survival、返回 `world` 为 adventure，并在单服无 Multiverse 环境核验 AuthMe/内置认证不改游戏模式。
 - [ ] 修正 AuthMe 模式 IP 限制键名并对齐内置模式的加入校验。
 - [ ] 决定 AuthMe 模式是否补 KaLogin 超时兜底,或从文档明确该差异。
 - [ ] 统一 `login-timeout` 代码默认值与配置值(60 vs 90)。

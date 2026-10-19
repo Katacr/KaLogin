@@ -98,6 +98,7 @@ login:
   max-login-attempts: 3
   max-accounts-per-ip: 3
   show-auto-login-checkbox: true
+  execute-events-on-auto-login: false
   dialog-delay-ticks: 1
 ```
 
@@ -108,7 +109,10 @@ login:
 | `max-login-attempts` | Maximum wrong password attempts before kick |
 | `max-accounts-per-ip` | Maximum accounts registered from one IP. `0` disables this limit |
 | `show-auto-login-checkbox` | Show the same IP auto login checkbox |
+| `execute-events-on-auto-login` | Execute the complete `events.login` action queue after same-IP auto login; defaults to `false` |
 | `dialog-delay-ticks` | Delay before opening the login or registration screen |
+
+When enabled, every action in the login queue runs; ensure rewards, time-recording, or commands are safe to repeat on each same-IP auto login. This option controls same-IP auto login in KaLogin's built-in mode only. Proxy session restore is controlled separately by `proxy.replay-login-actions`.
 
 For public servers, disabling same IP auto login is recommended:
 

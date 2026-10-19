@@ -193,6 +193,7 @@ loading:
 proxy:
   session-restored: "&a检测到群组登录状态，已自动登录。"
   unavailable-kick: "&c无法连接群组代理，请稍后重试。"
+  security-alert: "&c&l[安全提醒] &r&e检测到有其他设备正在尝试登录您的账户但未能成功，您的账户信息可能已泄露，建议您及时修改密码。"
 
 # AuthMe 相关
 authme:

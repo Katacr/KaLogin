@@ -193,6 +193,7 @@ loading:
 proxy:
   session-restored: "&aGroup login session detected, logged in automatically."
   unavailable-kick: "&cUnable to reach the network proxy. Please try again later."
+  security-alert: "&c&l[Security Alert] &r&eAnother device is trying to log into your account but failed. Your account information may be compromised; please change your password promptly."
 
 # AuthMe related
 authme:

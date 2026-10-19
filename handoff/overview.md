@@ -3,7 +3,8 @@
 ## 现状
 
 - **定位**:面向 Paper / Folia / Spigot 的 Minecraft 登录注册与账号安全插件,使用原生 Dialog 提供登录、注册、改密、邮箱绑定、密码找回、欢迎条款等交互。
-- **版本**:`1.5.1`(`build.gradle.kts:9`、`src/main/resources/plugin.yml:2`)。
+- **版本**:`1.5.2`(`build.gradle.kts:9`、`src/main/resources/plugin.yml:2`)。
+- **部署状态（2026-10-19）**：`1.5.2` 已部署至 Lobby、PVE、PVP、Resource1/2、Survival1/2；旧 JAR 备份保留在各服 `plugins/`，SHA-256 `7f4b552f497f2186c8eb0c247d6273832209073b1b260c087ed3b6c2ec351757`。
 - **平台支持**:编译目标 `paper-api:1.21.8`(`build.gradle.kts:47`);`plugin.yml:4` `api-version: '1.21'`,`plugin.yml:5` `folia-supported: true`;Spigot 适配编译于 `spigot-api:1.21.6`(`build.gradle.kts:63`)。README 旧描述为 "Paper 1.21.7+",实际运行要求见 `docs/home/start.md`。
 - **软依赖**:PlaceholderAPI、AuthMe、Geyser-Spigot(`plugin.yml:14-17`)。
 
@@ -87,4 +88,3 @@ KaLogin/
 - 版本号与文档同步:`README.md` 已更新为 `1.5.1`,但 `CHANGELOG.md` 仅记录到 `1.4.0`,缺 1.5.x 条目(缺乏可靠变更来源,待补)。
 - `API/` 目录为参考反编译源码,建议在 README/交接中明确其不可编译,避免误用。
 - 仓库无有效 git 历史(`.git` 存在但 `git` 报不是仓库),变更追溯困难。
-

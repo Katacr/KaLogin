@@ -154,11 +154,12 @@ class LastSeenManager(private val plugin: KaLogin) : PluginMessageListener {
 
     /** 认证完成后的收尾：应用预留传送并通知代理可以前往。 */
     fun onAuthenticated(player: Player) {
-        if (!enabled) {
-            return
+        if (enabled) {
+            applyPending(player)
+            send(player, "ready") { output -> ProxyProtocol.writeUuid(output, player.uniqueId) }
         }
-        applyPending(player)
-        send(player, "ready") { output -> ProxyProtocol.writeUuid(output, player.uniqueId) }
+        // 即使未启用 last-seen，也必须在认证完成后通知可选集成插件。
+        plugin.server.pluginManager.callEvent(org.katacr.kalogin.listener.PlayerAuthenticationReadyEvent(player))
     }
 
     /** 玩家退服（含切服）：写入坐标到共享数据库并清理未应用的传送。 */

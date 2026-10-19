@@ -2,6 +2,8 @@
 
 KaLogin 可以通过 KaProxy 在群组服务器（Velocity / BungeeCord）中共享登录状态：玩家在任意子服登录后，切换到其它子服时无需重复登录。
 
+认证收尾（包括可选的上次位置本地应用）完成后，KaLogin 发出 Bukkit `PlayerAuthenticationReadyEvent`（`org.katacr.kalogin.listener`）。内置/AuthMe、手动/自动/跨服恢复均通过此事件通知其他插件。它不保证代理端异步的 last-seen 后续切服已结束；跨服落点仍须有独立事务确认。
+
 ## 前置条件
 
 - 代理端安装 KaProxy，并启用 `modules.kalogin`（详见 KaProxy 文档）。
@@ -55,6 +57,14 @@ last-seen:
 - 会话绑定登录时的 IP（由 KaProxy 的 `bind-ip` 控制），IP 变化时会拒绝恢复。
 - AuthMe 模式下，目标服会调用 AuthMe 恢复登录态，因此各服 AuthMe 数据库必须一致。
 - 代理不可用且 `require-proxy: true` 时，玩家会被踢出；否则回退本地流程。
+- `proxy.replay-login-actions` 只控制代理会话恢复时是否重放 `events.login`；同 IP 本地自动登录由 `login.execute-events-on-auto-login` 独立控制。
+
+## 安全告警与登录失败封禁
+
+配合 KaProxy 的 `modules.kalogin.security-alert` 与 `modules.kalogin.ip-ban`：
+
+- **安全告警**：当有其他设备尝试登录一个已登录的账户（代理判为冲突登录）时，代理会向仍在线且已登录的玩家定向发送告警，KaLogin 用 `proxy.security-alert` 文案提示"其他设备正在尝试登录您的账户，建议及时修改密码"。告警按玩家冷却，避免被恶意刷屏。
+- **登录失败封 IP**：KaLogin 每次密码错误都会向代理上报来源 IP；代理在窗口内累计失败次数，达到阈值即临时封禁该 IP，被封 IP 的后续连接在代理登录阶段被直接拒绝。阈值与时长由 KaProxy 配置。
 
 ## 自动回到上次位置
 

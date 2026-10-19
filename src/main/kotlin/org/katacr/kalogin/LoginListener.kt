@@ -117,6 +117,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                         plugin.proxySessionManager.reportAuth(player)
                         plugin.welcomeManager.showWelcomeIfNeeded(player) {
                             plugin.antiCheatManager.endAuthenticating(player)
+                            if (plugin.config.getBoolean("login.execute-events-on-auto-login", false)) {
+                                plugin.eventActionExecutor.execute(player, "login")
+                            }
                             plugin.emailBindManager.showPromptIfNeeded(player)
                             KaLoginAPI.getInstance()?.callPlayerAutoLogin(player, currentIp)
                             plugin.lastSeenManager.onAuthenticated(player)
@@ -178,7 +181,9 @@ class LoginListener(private val plugin: KaLogin) : Listener {
         val currentIp = player.address?.address?.hostAddress ?: "127.0.0.1"
         plugin.antiCheatManager.markProgrammaticClose(player)
         plugin.dialogPlatform.close(player)
-        plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("proxy.session-restored"))
+        if (plugin.proxySessionManager.isRestoreMessage()) {
+            plugin.messageManager.sendComponent(player, plugin.messageManager.getComponent("proxy.session-restored"))
+        }
         loggedInPlayers[player.uniqueId] = true
         loginAttempts.remove(player.uniqueId)
         plugin.dbManager.updateLastLoginIp(player.uniqueId, currentIp)
@@ -308,6 +313,8 @@ class LoginListener(private val plugin: KaLogin) : Listener {
                             } else {
                             val currentAttempts = (loginAttempts[player.uniqueId] ?: 0) + 1
                             loginAttempts[player.uniqueId] = currentAttempts
+                            // 上报代理按来源 IP 累计失败次数，达阈值时由代理临时封禁该 IP
+                            plugin.proxySessionManager.reportLoginFailed(player)
 
                             val remainingAttempts = maxAttempts - currentAttempts
                             if (remainingAttempts > 0) {

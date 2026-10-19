@@ -40,6 +40,8 @@ In this mode:
 
 ## Which mode should I choose
 
+In either authentication mode, KaLogin's authentication protection neither changes a player's game mode temporarily nor restores an earlier game mode after authentication. On a standalone server or without a world manager, the current mode set by the server or other plugins is retained. With a world manager such as Multiverse-Core, its destination-world rules determine the mode after a cross-world teleport. No HuskSync or other synchronization plugin is required for this behavior.
+
 | Need | Recommended mode |
 |---|---|
 | You already have AuthMe account data | AuthMe mode |

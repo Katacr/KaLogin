@@ -30,6 +30,8 @@ events:
 
 Spigot does not support Toast actions. KaLogin skips the action and logs one console warning; use `tell:` when the configuration must work on every supported platform.
 
+In the built-in authentication mode, same-IP auto login does not execute `events.login` by default. Set `login.execute-events-on-auto-login: true` to run the full action queue; it may run again on each same-IP auto login. Proxy session restore uses the separate `proxy.replay-login-actions` option.
+
 ## Toast parameters
 
 ```yaml

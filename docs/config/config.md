@@ -98,6 +98,7 @@ login:
   max-login-attempts: 3
   max-accounts-per-ip: 3
   show-auto-login-checkbox: true
+  execute-events-on-auto-login: false
   dialog-delay-ticks: 1
 ```
 
@@ -108,7 +109,10 @@ login:
 | `max-login-attempts` | 密码错误次数上限，超过后踢出 |
 | `max-accounts-per-ip` | 同一 IP 最多注册账号数量，`0` 表示不限制 |
 | `show-auto-login-checkbox` | 是否显示同 IP 自动登录勾选框 |
+| `execute-events-on-auto-login` | 同 IP 自动登录成功后是否执行完整的 `events.login` 动作队列；默认 `false` |
 | `dialog-delay-ticks` | 玩家进入服务器后延迟多少 tick 弹出界面 |
+
+启用后，队列中的全部登录动作都会执行；如果动作包含奖励、计时记录或命令，请确认它们适合在每次同 IP 自动登录时重复执行。此配置只控制 KaLogin 内置模式的同 IP 自动登录；代理跨服恢复仍由 `proxy.replay-login-actions` 单独控制。
 
 公网服务器建议关闭同 IP 自动登录：
 
