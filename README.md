@@ -6,7 +6,7 @@
 Paper / Folia 1.21.7 及以上，Spigot 1.21.6 及以上，需要 Java 21
 
 ## 最新版本
-**v1.5.1** - [查看更新日志](CHANGELOG.md)
+**v1.5.2** - [查看更新日志](changeLog/CHANGELOG_v1.5.2.md)
 
 ## 功能特性
 
@@ -328,13 +328,15 @@ A: 在登录界面底部有一个"同 IP 自动登录"的复选框，勾选后�
 
 KaLogin 提供开放的 API 接口，允许其他插件监听玩家的登录、注册、修改密码等操作。
 
+完整的接口说明、事件字段表与示例见 [开放 API 文档](docs/api.md)。
+
 ### 添加依赖
 
-将 `KaLogin-1.5.1.jar` 插件本体复制到你项目内的 libs 文件夹，并在你的插件的 `build.gradle.kts` 中添加 KaLogin 作为软依赖：
+将 `KaLogin-1.5.2.jar` 插件本体复制到你项目内的 libs 文件夹，并在你的插件的 `build.gradle.kts` 中添加 KaLogin 作为软依赖：
 
 ```kotlin
 dependencies {
-    compileOnly(fileTree("libs") { include("KaLogin-1.5.1.jar") })
+    compileOnly(fileTree("libs") { include("KaLogin-1.5.2.jar") })
 }
 ```
 

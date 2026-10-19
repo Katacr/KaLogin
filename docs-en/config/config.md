@@ -230,6 +230,7 @@ proxy:
   query-timeout-ms: 5000
   query-delay-ticks: 3
   restore-welcome: true
+  restore-message: true
   restore-email-prompt: false
   replay-login-actions: false
 ```
@@ -242,6 +243,7 @@ proxy:
 | `proxy.query-timeout-ms` | Session query response timeout (ms) |
 | `proxy.query-delay-ticks` | Ticks to wait after join before querying |
 | `proxy.restore-welcome` | Show the welcome screen on restore based on the terms state |
+| `proxy.restore-message` | Send the "group login session detected, logged in automatically" message on restore |
 | `proxy.restore-email-prompt` | Repeat the email prompt on restore |
 | `proxy.replay-login-actions` | Replay `events.login` on restore |
 

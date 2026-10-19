@@ -230,6 +230,7 @@ proxy:
   query-timeout-ms: 5000
   query-delay-ticks: 3
   restore-welcome: true
+  restore-message: true
   restore-email-prompt: false
   replay-login-actions: false
 ```
@@ -242,6 +243,7 @@ proxy:
 | `proxy.query-timeout-ms` | 会话查询应答超时(毫秒) |
 | `proxy.query-delay-ticks` | 进服后延迟查询的 tick 数 |
 | `proxy.restore-welcome` | 跨服恢复时是否按条款状态弹欢迎 |
+| `proxy.restore-message` | 跨服恢复时是否发送"检测到群组登录状态，已自动登录"提示语 |
 | `proxy.restore-email-prompt` | 跨服恢复时是否重复邮箱提示 |
 | `proxy.replay-login-actions` | 跨服恢复时是否重放 `events.login` |
 

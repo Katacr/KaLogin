@@ -15,4 +15,6 @@
   * [命令列表](perm/commands.md)
   * [权限列表](perm/permissions.md)
 * [PlaceholderAPI](PlaceholderAPI.md)
+* [开放 API](api.md)
+* [语言文件](lang.md)
 * [常见问题](faq.md)

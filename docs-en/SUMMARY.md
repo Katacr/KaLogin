@@ -15,4 +15,6 @@
   * [Commands](perm/commands.md)
   * [Permissions](perm/permissions.md)
 * [PlaceholderAPI](PlaceholderAPI.md)
+* [Open API](api.md)
+* [Language Files](lang.md)
 * [FAQ](faq.md)

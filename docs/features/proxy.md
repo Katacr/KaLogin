@@ -2,7 +2,7 @@
 
 KaLogin 可以通过 KaProxy 在群组服务器（Velocity / BungeeCord）中共享登录状态：玩家在任意子服登录后，切换到其它子服时无需重复登录。
 
-认证收尾（包括可选的上次位置本地应用）完成后，KaLogin 发出 Bukkit `PlayerAuthenticationReadyEvent`（`org.katacr.kalogin.listener`）。内置/AuthMe、手动/自动/跨服恢复均通过此事件通知其他插件。它不保证代理端异步的 last-seen 后续切服已结束；跨服落点仍须有独立事务确认。
+认证收尾（包括可选的上次位置本地应用）完成后，KaLogin 发出 Bukkit `PlayerAuthenticationReadyEvent`（`org.katacr.kalogin.listener`）。内置/AuthMe、手动/自动/跨服恢复均通过此事件通知其他插件。它不保证代理端异步的 last-seen 后续切服已结束；跨服落点仍须有独立事务确认。监听方式见[开放 API](../api.md)。
 
 ## 前置条件
 
@@ -21,6 +21,7 @@ proxy:
   query-timeout-ms: 5000
   query-delay-ticks: 3
   restore-welcome: true
+  restore-message: true
   restore-email-prompt: false
   replay-login-actions: false
 
@@ -39,6 +40,7 @@ last-seen:
 | `proxy.query-timeout-ms` | `5000` | 查询代理会话的应答超时（毫秒），超时按代理不可用处理。 |
 | `proxy.query-delay-ticks` | `3` | 进服后延迟多少 tick 再发送查询，避开连接 configuration 阶段的丢包。 |
 | `proxy.restore-welcome` | `true` | 跨服恢复时，是否仍按数据库条款状态决定是否弹欢迎界面。 |
+| `proxy.restore-message` | `true` | 跨服恢复时，是否发送"检测到群组登录状态，已自动登录"提示语；关闭后恢复过程静默。 |
 | `proxy.restore-email-prompt` | `false` | 跨服恢复时是否重复弹出邮箱绑定提示。 |
 | `proxy.replay-login-actions` | `false` | 跨服恢复时是否重放 `events.login` 动作。 |
 | `last-seen.enabled` | `true` | 登录完成后是否自动回到上次下线的子服与坐标（依赖 `proxy.enabled`）。 |

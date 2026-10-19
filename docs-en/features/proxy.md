@@ -2,7 +2,7 @@
 
 KaLogin can share login state across a proxy network (Velocity / BungeeCord) through KaProxy: after a player logs in on any backend, switching to another backend does not require logging in again.
 
-After authentication finalization (including any local last-seen application), KaLogin fires the Bukkit `org.katacr.kalogin.listener.PlayerAuthenticationReadyEvent`. It covers built-in/AuthMe and manual/automatic/proxy-restored logins. It does not guarantee completion of a later asynchronous proxy-side last-seen transfer; cross-server arrivals still require their own acknowledgement.
+After authentication finalization (including any local last-seen application), KaLogin fires the Bukkit `org.katacr.kalogin.listener.PlayerAuthenticationReadyEvent`. It covers built-in/AuthMe and manual/automatic/proxy-restored logins. It does not guarantee completion of a later asynchronous proxy-side last-seen transfer; cross-server arrivals still require their own acknowledgement. See the [Open API](../api.md) page for how to listen to it.
 
 ## Requirements
 
@@ -21,6 +21,7 @@ proxy:
   query-timeout-ms: 5000
   query-delay-ticks: 3
   restore-welcome: true
+  restore-message: true
   restore-email-prompt: false
   replay-login-actions: false
 
@@ -39,6 +40,7 @@ last-seen:
 | `proxy.query-timeout-ms` | `5000` | Response timeout for the session query (ms); a timeout is treated as proxy unavailable. |
 | `proxy.query-delay-ticks` | `3` | Ticks to wait after join before sending the query, avoiding packet loss during the configuration phase. |
 | `proxy.restore-welcome` | `true` | On restore, still show the welcome screen depending on the stored terms state. |
+| `proxy.restore-message` | `true` | Send the "group login session detected, logged in automatically" message on restore; set to `false` to restore silently. |
 | `proxy.restore-email-prompt` | `false` | Repeat the email binding prompt on cross-server restore. |
 | `proxy.replay-login-actions` | `false` | Replay `events.login` actions on cross-server restore. |
 | `last-seen.enabled` | `true` | Return to the last server and position after login (requires `proxy.enabled`). |
